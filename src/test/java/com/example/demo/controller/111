@@ -1,0 +1,306 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.3",
+    "lastTouchedAt": "2026-03-11T13:36:05.070Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-03-05T03:25:27.694Z",
+    "lastRunVersion": "2026.3.3",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "update": {
+    "checkOnStart": false
+  },
+  "browser": {
+    "executablePath": "/usr/bin/google-chrome",
+    "headless": true,
+    "defaultProfile": "openclaw"
+  },
+  "models": {
+      "providers": {
+        "volcengine-plan": {
+          "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+          "apiKey": "961b7c83-e28f-407f-981c-cf72ae460fc2",
+          "api": "openai-completions",
+          "models": [
+            {
+              "id": "ark-code-latest",
+              "name": "ark-code-latest",
+              "contextWindow": 256000,
+              "maxTokens": 32000,
+              "input": [
+                "text",
+                "image"
+              ]
+            },
+            {
+              "id": "doubao-seed-code",
+              "name": "doubao-seed-code",
+              "contextWindow": 256000,
+              "maxTokens": 32000,
+              "input": [
+                "text",
+                "image"
+              ]
+            },
+            {
+              "id": "glm-4.7",
+              "name": "glm-4.7",
+              "contextWindow": 200000,
+              "maxTokens": 128000,
+              "input": [
+                "text"
+              ]
+            },
+            {
+              "id": "deepseek-v3.2",
+              "name": "deepseek-v3.2",
+              "contextWindow": 128000,
+              "maxTokens": 32000
+            },
+            {
+              "id": "doubao-seed-2.0-code",
+              "name": "doubao-seed-2.0-code",
+              "contextWindow": 256000,
+              "maxTokens": 128000,
+              "input": [
+                "text",
+                "image"
+              ]
+            },
+            {
+              "id": "doubao-seed-2.0-pro",
+              "name": "doubao-seed-2.0-pro",
+              "contextWindow": 256000,
+              "maxTokens": 128000,
+              "input": [
+                "text",
+                "image"
+              ]
+            },
+            {
+              "id": "doubao-seed-2.0-lite",
+              "name": "doubao-seed-2.0-lite",
+              "contextWindow": 256000,
+              "maxTokens": 128000,
+              "input": [
+                "text",
+                "image"
+              ]
+            },
+            {
+              "id": "minimax-m2.5",
+              "name": "minimax-m2.5",
+              "contextWindow": 200000,
+              "maxTokens": 128000,
+              "input": [
+                "text"
+              ]
+            },
+            {
+              "id": "kimi-k2.5",
+              "name": "kimi-k2.5",
+              "contextWindow": 256000,
+              "maxTokens": 32000,
+              "input": [
+                "text",
+                "image"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "agents": {
+      "defaults": {
+        "model": {
+          "primary": "volcengine-plan/ark-code-latest"
+        },
+        "models": {
+          "volcengine-plan/ark-code-latest": {},
+          "volcengine-plan/doubao-seed-2.0-code": {},
+          "volcengine-plan/doubao-seed-2.0-pro": {},
+          "volcengine-plan/doubao-seed-2.0-lite": {},
+          "volcengine-plan/doubao-seed-code": {},
+          "volcengine-plan/minimax-m2.5": {},
+          "volcengine-plan/glm-4.7": {},
+          "volcengine-plan/deepseek-v3.2": {},
+          "volcengine-plan/kimi-k2.5": {}
+        }
+      }
+    },
+  "tools": {
+    "profile": "full"
+  },
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": true,
+    "nativeSkills": true,
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "cron": {
+    "enabled": true
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "boot-md": {
+          "enabled": true
+        },
+        "command-logger": {
+          "enabled": true
+        },
+        "session-memory": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 17427,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "basePath": "6f52a3e8",
+      "allowedOrigins": [
+        "http://47.108.60.107:17427"
+      ],
+      "allowInsecureAuth": true,
+      "dangerouslyDisableDeviceAuth": true
+    },
+    "auth": {
+      "mode": "token",
+      "token": "51c5d2fa4960c61014a69e5ce3436ed2"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "reload": {
+      "mode": "restart"
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        },
+        "responses": {
+          "enabled": true
+        }
+      }
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "contacts.add",
+        "calendar.add",
+        "reminders.add",
+        "sms.send"
+      ]
+    }
+  },
+  "plugins": {
+    "enabled": true,
+    "allow": [
+      "dingtalk",
+      "qqbot",
+      "dashscope-cfg",
+      "wecom",
+      "feishu"
+    ],
+    "entries": {
+      "dashscope-cfg": {
+        "enabled": true
+      },
+      "wecom": {
+        "enabled": true
+      },
+      "dingtalk": {
+        "enabled": true
+      },
+      "qqbot": {
+        "enabled": true
+      },
+      "feishu": {
+        "enabled": true
+      }
+    },
+    "installs": {
+      "dashscope-cfg": {
+        "source": "path",
+        "sourcePath": "/opt/openclaw/extensions/dashscope-cfg",
+        "installPath": "/home/admin/.openclaw/extensions/dashscope-cfg",
+        "version": "2026.2.25",
+        "installedAt": "2026-03-05T03:36:01.180Z"
+      },
+      "wecom": {
+        "source": "npm",
+        "spec": "@openclaw-china/wecom",
+        "installPath": "/home/admin/.openclaw/extensions/wecom",
+        "version": "2026.3.4-2",
+        "resolvedName": "@openclaw-china/wecom",
+        "resolvedVersion": "2026.3.4-2",
+        "resolvedSpec": "@openclaw-china/wecom@2026.3.4-2",
+        "integrity": "sha512-uKHkO7kPVFWLzMXRT+s/sXZyYuQX8fxC2CKes59hiV5Hw1NwJ78Tj15jlmXyDJoZ1L7keT5QAqc86rW+ayWyWw==",
+        "shasum": "005f77478b58eca287ab67d26a5d2fb1778b48d6",
+        "resolvedAt": "2026-03-05T07:19:06.171Z",
+        "installedAt": "2026-03-05T07:19:10.607Z"
+      },
+      "dingtalk": {
+        "source": "npm",
+        "spec": "@soimy/dingtalk",
+        "installPath": "/home/admin/.openclaw/extensions/dingtalk",
+        "version": "3.2.0",
+        "resolvedName": "@soimy/dingtalk",
+        "resolvedVersion": "3.2.0",
+        "resolvedSpec": "@soimy/dingtalk@3.2.0",
+        "integrity": "sha512-6JDDZit0WPy3xUC0rNQVMQEKMXcbjnN5r0/Rq44xJ3IOFceQnZVhLXgnahQsuw/03GJAxNl6FKb0PTxm1R7ZIw==",
+        "shasum": "9b32caab49d1e1c76ab41d39b15175ff76f0e112",
+        "resolvedAt": "2026-03-05T07:19:29.807Z",
+        "installedAt": "2026-03-05T07:20:05.338Z"
+      },
+      "qqbot": {
+        "source": "path",
+        "sourcePath": "/home/admin/qqbot",
+        "installPath": "/home/admin/.openclaw/extensions/qqbot",
+        "version": "1.5.1",
+        "installedAt": "2026-03-05T07:23:31.488Z"
+      },
+      "feishu": {
+        "source": "npm",
+        "spec": "@openclaw/feishu",
+        "installPath": "/home/admin/.openclaw/extensions/feishu",
+        "version": "2026.3.7",
+        "resolvedName": "@openclaw/feishu",
+        "resolvedVersion": "2026.3.7",
+        "resolvedSpec": "@openclaw/feishu@2026.3.7",
+        "integrity": "sha512-CHPcL+WHYKYR2HJKRYsRtlXx/wbQRy5axltjjH9qXkR8ghxygDmOHZREjxyFEbjFJ3wnIuvgjLE7JYTg3nPpDA==",
+        "shasum": "c4b31dbe2ff0bc7034334873482ad18ac60a0767",
+        "resolvedAt": "2026-03-11T03:16:24.004Z",
+        "installedAt": "2026-03-11T03:16:58.942Z"
+      }
+    }
+  },
+  "channels": {
+    "feishu": {
+      "accounts": {
+        "default": {
+          "appId": "cli_a9386bccef785cc2",
+          "appSecret": "F6KcTaHvZK7Cx7bnODEdzcjLxCnkmA47",
+          "domain": "feishu",
+          "enabled": true
+        }
+      }
+    }
+  }
+}

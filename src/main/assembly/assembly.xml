@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 https://maven.apache.org/xsd/assembly-2.2.0.xsd">
+    <id>distribution</id>
+    <formats>
+        <format>tar.gz</format>
+        <format>zip</format>
+    </formats>
+    
+    <includeBaseDirectory>true</includeBaseDirectory>
+    
+    <fileSets>
+        <!-- Scripts -->
+        <fileSet>
+            <directory>src/main/scripts</directory>
+            <outputDirectory>bin</outputDirectory>
+            <includes>
+                <include>*.sh</include>
+                <include>*.bat</include>
+            </includes>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        
+        <!-- Config files -->
+        <fileSet>
+            <directory>src/main/resources</directory>
+            <outputDirectory>config</outputDirectory>
+            <includes>
+                <include>*.properties</include>
+                <include>*.yml</include>
+                <include>*.yaml</include>
+                <include>*.sql</include>
+                <include>mapper/*.xml</include>
+            </includes>
+        </fileSet>
+        
+        <!-- Logs directory -->
+        <fileSet>
+            <directory>${project.basedir}</directory>
+            <outputDirectory>logs</outputDirectory>
+            <excludes>
+                <exclude>**/*</exclude>
+            </excludes>
+        </fileSet>
+    </fileSets>
+    
+    <files>
+        <file>
+            <source>${project.build.directory}/${project.build.finalName}.jar</source>
+            <outputDirectory>lib</outputDirectory>
+        </file>
+    </files>
+    
+    <dependencySets>
+        <dependencySet>
+            <outputDirectory>lib</outputDirectory>
+            <useProjectArtifact>false</useProjectArtifact>
+            <scope>runtime</scope>
+        </dependencySet>
+    </dependencySets>
+</assembly>

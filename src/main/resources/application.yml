@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    password: 
+    database: 0
+    timeout: 3000
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
+logging:
+  level:
+    com.example.demo: DEBUG
+    org.springframework.web: INFO
+    org.springframework.data.redis: DEBUG
+
+feishu:
+  app-id: your_feishu_app_id
+  app-secret: your_feishu_app_secret
+  verification-token: your_verification_token
+  encrypt-key: your_encrypt_key
+
+llm:
+  api-key: your_llm_api_key
+  base-url: https://api.openai.com/v1/chat/completions
+  model: gpt-3.5-turbo
