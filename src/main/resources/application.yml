@@ -21,10 +21,10 @@ logging:
     org.springframework.data.redis: DEBUG
 
 feishu:
-  app-id: cli_a93e71c7b7211bd4
-  app-secret: gV6nHAl49GUEkpc4gaVTlcQDqVONPJQH
-  verification-token: zhanghui444555
-  encrypt-key: rGF6izpoNzGrzFpNuWLQJgPrE813N3kA
+  app-id: test
+  app-secret: test
+  verification-token: test
+  encrypt-key: test
 
 llm:
   api-key: your_llm_api_key

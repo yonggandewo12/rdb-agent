@@ -1,5 +1,6 @@
 package com.example.demo.utils;
 
+import org.apache.commons.codec.binary.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Base64Utils;
@@ -8,6 +9,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.Security;
 import java.util.Arrays;
 
 /**
@@ -50,68 +52,46 @@ public class FeishuCryptoUtil {
      * @return 解密后的明文JSON
      * @throws Exception 解密异常
      */
-    public static String decrypt(String encryptKey, String encrypt) throws Exception {
-        if (encryptKey == null || encryptKey.trim().isEmpty()) {
-            throw new IllegalArgumentException("encrypt_key cannot be empty");
-        }
-        if (encrypt == null || encrypt.trim().isEmpty()) {
-            throw new IllegalArgumentException("encrypt content cannot be empty");
-        }
-        
-        try {
-            // 1. 处理encrypt_key：飞书提供的encrypt_key是base64编码，自动补全padding
-            String base64Key = encryptKey;
-            int padding = (4 - base64Key.length() % 4) % 4;
-            if (padding > 0) {
-                base64Key += "====".substring(0, padding);
-            }
-            byte[] aesKey = Base64Utils.decodeFromString(base64Key);
-            logger.debug("AES key length: {} bytes", aesKey.length);
-            
-            // 2. 解码加密内容
-            byte[] encryptedData = Base64Utils.decodeFromString(encrypt);
-            if (encryptedData.length < IV_LENGTH) {
-                throw new IllegalArgumentException("Invalid encrypted data: length " + encryptedData.length + " < 16 bytes");
-            }
-            
-            // 3. 提取IV（前16字节）
-            byte[] iv = Arrays.copyOfRange(encryptedData, 0, IV_LENGTH);
-            IvParameterSpec ivParameterSpec = new IvParameterSpec(iv);
-            
-            // 4. 提取密文（16字节之后的内容）
-            byte[] ciphertext = Arrays.copyOfRange(encryptedData, IV_LENGTH, encryptedData.length);
-            
-            // 5. AES解密
-            SecretKeySpec secretKey = new SecretKeySpec(aesKey, ALGORITHM);
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec);
-            byte[] decryptedData = cipher.doFinal(ciphertext);
-            
-            if (decryptedData.length < CONTENT_LENGTH_SIZE) {
-                throw new IllegalArgumentException("Decrypted data too short: " + decryptedData.length + " < 4 bytes");
-            }
-            
-            // 6. 解析内容长度：前4字节是大端序的内容长度
-            int contentLength = ((decryptedData[0] & 0xFF) << 24)
-                              | ((decryptedData[1] & 0xFF) << 16)
-                              | ((decryptedData[2] & 0xFF) << 8)
-                              |  (decryptedData[3] & 0xFF);
-            
-            logger.debug("Decrypted data length: {}, content length: {}", decryptedData.length, contentLength);
-            
-            // 7. 提取实际JSON内容：4字节之后的contentLength个字节
-            if (contentLength < 0 || contentLength > decryptedData.length - CONTENT_LENGTH_SIZE) {
-                throw new IllegalArgumentException("Invalid content length: " + contentLength + 
-                    ", available: " + (decryptedData.length - CONTENT_LENGTH_SIZE));
-            }
-            
-            String result = new String(decryptedData, CONTENT_LENGTH_SIZE, contentLength, StandardCharsets.UTF_8);
-            logger.debug("Decrypt success, result length: {}", result.length());
-            return result;
-            
-        } catch (Exception e) {
-            logger.error("Failed to decrypt feishu event: {}", e.getMessage(), e);
-            throw new Exception("Decrypt failed: " + e.getMessage(), e);
-        }
+    static {
+        // 解决部分 JDK 加密权限限制
+        Security.setProperty("crypto.policy", "unlimited");
+    }
+
+    /**
+     * 解密飞书的 encrypt 字符串
+     * @param encrypt 透传过来的加密字符串
+     * @return 解密后的原始明文 JSON
+     */
+    public static String decrypt(String encrypt,String encryptedKey) throws Exception {
+        // 1. 对密钥做 SHA256 处理（飞书固定规则）
+        byte[] key = org.apache.commons.codec.digest.DigestUtils.sha256(encryptedKey);
+        // 2. 初始化 AES-CBC 解密器
+        SecretKeySpec secretKeySpec = new SecretKeySpec(key, "AES");
+        // IV 固定取密钥前 16 位
+        IvParameterSpec iv = new IvParameterSpec(key, 0, 16);
+
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, iv);
+
+        // 3. Base64 解码 + AES 解密
+        byte[] encrypted = Base64.decodeBase64(encrypt);
+        byte[] original = cipher.doFinal(encrypted);
+
+        // 4. 转换为字符串（飞书格式：随机字符串+长度+明文JSON）
+        String result = new String(original, StandardCharsets.UTF_8);
+        // 5. 截取有效 JSON 数据（去掉飞书前缀）
+        return extractJson(result);
+    }
+
+    /**
+     * 从解密后的字符串中，提取出真正的业务 JSON
+     */
+    private static String extractJson(String str) {
+        // 格式：16位随机字符串 + 4位数据长度 + JSON 正文
+        return str.substring(16);
+    }
+
+    public static void main(String[] args) throws Exception {
+        System.out.println(decrypt("aZvLSPJiIiqsI9Lq0erfGkXvalLrTTlCrWIDLXTOKGz7KkOtpx2A4vHl3IXkzf3xvxq890r118mKIrMJV54i1Y1579KcF/UblRcVOAlVcNGmP5ZcJgSmx/iAz92Gae5pWyYngFuriyWUa/nZJ9Uy2k8AUxDQxLlPO+hIqOaVg0Zxt85wITqyFIfxFrNYB+cY","zhanghui444555"));
     }
 }
