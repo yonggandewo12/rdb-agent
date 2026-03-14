@@ -92,6 +92,6 @@ public class FeishuCryptoUtil {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println(decrypt("aZvLSPJiIiqsI9Lq0erfGkXvalLrTTlCrWIDLXTOKGz7KkOtpx2A4vHl3IXkzf3xvxq890r118mKIrMJV54i1Y1579KcF/UblRcVOAlVcNGmP5ZcJgSmx/iAz92Gae5pWyYngFuriyWUa/nZJ9Uy2k8AUxDQxLlPO+hIqOaVg0Zxt85wITqyFIfxFrNYB+cY","zhanghui444555"));
+        System.out.println(decrypt("wEs8roJ4q7eOXFEO137PaLr5c9Zpv3DwNsLhJ2Fv4rBmTHWyjjsfWh0F9jww8Q5wAIuIv/OfhII7j/B9c0Kbs2C2ogaOCfIBAobU0qmX99mddBC1KO8mRll4aL56um+QcI5TX067SQM4k45h+JNfqN1WYnXhvjFM+owit5lErHC5GRmU53BtmVxLcz3+tnDN","zhanghui444555"));
     }
 }
