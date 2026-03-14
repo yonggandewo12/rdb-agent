@@ -3,21 +3,36 @@ package com.example.demo.controller;
 import com.example.demo.dto.feishu.FeishuChallengeRequest;
 import com.example.demo.dto.feishu.FeishuEventRequest;
 import com.example.demo.service.FeishuService;
+import com.example.demo.utils.FeishuCryptoUtil;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 飞书事件回调控制器
+ *
+ * @author system
+ * @date 2026-03-14
+ */
 @RestController
 @RequestMapping("/api/feishu")
 public class FeishuController {
     
     private static final Logger logger = LoggerFactory.getLogger(FeishuController.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    
+    @Value("${feishu.encrypt-key:}")
+    private String encryptKey;
     
     private final FeishuService feishuService;
     
@@ -28,14 +43,33 @@ public class FeishuController {
     
     /**
      * 飞书事件回调接口
+     * 支持明文和加密两种模式，自动检测处理
      */
     @PostMapping("/webhook")
     public ResponseEntity<?> webhook(@RequestBody String requestBody) {
         try {
-            // 判断是否是URL验证请求
-            if (requestBody.contains("\"type\":\"url_verification\"")) {
-                FeishuChallengeRequest challengeRequest = new com.fasterxml.jackson.databind.ObjectMapper()
-                        .readValue(requestBody, FeishuChallengeRequest.class);
+            String plainRequestBody = requestBody;
+            
+            // 1. 检测是否是加密请求
+            JsonNode rootNode = OBJECT_MAPPER.readTree(requestBody);
+            if (rootNode.has("encrypt")) {
+                String encryptContent = rootNode.get("encrypt").asText();
+                if (!StringUtils.hasText(encryptKey)) {
+                    logger.error("Received encrypted event but encrypt-key is not configured");
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Encrypt key not configured");
+                }
+                
+                // 解密加密内容
+                plainRequestBody = FeishuCryptoUtil.decrypt(encryptKey, encryptContent);
+                logger.debug("Decrypted feishu event: {}", plainRequestBody);
+            }
+            
+            // 2. 处理解密后的明文请求
+            JsonNode plainNode = OBJECT_MAPPER.readTree(plainRequestBody);
+            
+            // 3. 判断是否是URL验证请求
+            if (plainNode.has("type") && "url_verification".equals(plainNode.get("type").asText())) {
+                FeishuChallengeRequest challengeRequest = OBJECT_MAPPER.readValue(plainRequestBody, FeishuChallengeRequest.class);
                 
                 String challenge = feishuService.handleChallenge(
                         challengeRequest.getChallenge(), 
@@ -47,9 +81,8 @@ public class FeishuController {
                 return ResponseEntity.ok(response);
             }
             
-            // 处理消息事件
-            FeishuEventRequest eventRequest = new com.fasterxml.jackson.databind.ObjectMapper()
-                    .readValue(requestBody, FeishuEventRequest.class);
+            // 4. 处理消息事件
+            FeishuEventRequest eventRequest = OBJECT_MAPPER.readValue(plainRequestBody, FeishuEventRequest.class);
             
             String eventType = eventRequest.getHeader().getEventType();
             logger.info("Received Feishu event: {}", eventType);
