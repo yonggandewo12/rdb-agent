@@ -71,13 +71,13 @@ public class FeishuController {
             if (plainNode.has("type") && "url_verification".equals(plainNode.get("type").asText())) {
                 FeishuChallengeRequest challengeRequest = OBJECT_MAPPER.readValue(plainRequestBody, FeishuChallengeRequest.class);
                 
-                String challenge = feishuService.handleChallenge(
-                        challengeRequest.getChallenge(), 
+                feishuService.handleChallenge(
+                        challengeRequest.getToken(),
                         challengeRequest.getToken()
                 );
                 
                 Map<String, String> response = new HashMap<>();
-                response.put("challenge", challenge);
+                response.put("challenge", challengeRequest.getChallenge());
                 return ResponseEntity.ok(response);
             }
             

@@ -5,7 +5,7 @@ public interface FeishuService {
     /**
      * 处理飞书URL验证请求
      */
-    String handleChallenge(String challenge, String token);
+    void handleChallenge(String challenge, String token);
     
     /**
      * 处理飞书消息事件

@@ -45,7 +45,7 @@ public class FeishuServiceImpl implements FeishuService {
      * @return 挑战字符串
      */
     @Override
-    public String handleChallenge(String challenge, String token) {
+    public void handleChallenge(String challenge, String token) {
         if (!StringUtils.hasText(challenge) || !StringUtils.hasText(token)) {
             throw new IllegalArgumentException(CommonConstant.ErrorMessage.PARAM_NULL);
         }
@@ -55,8 +55,7 @@ public class FeishuServiceImpl implements FeishuService {
             throw new RuntimeException("Invalid verification token");
         }
         
-        logger.info("Feishu challenge verified successfully, challenge: {}", challenge);
-        return challenge;
+        logger.info("Feishu token verified successfully, token: {}", challenge);
     }
     
     /**
