@@ -32,7 +32,7 @@ else
 fi
 
 # JVM Options
-JAVA_OPTS="${JAVA_OPTS:- -Xms512m -Xmx1024m -XX:+UseG1GC}"
+JAVA_OPTS="${JAVA_OPTS:- -Xms512m -Xmx1024m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9999}"
 
 # Check if already running
 check_running() {
