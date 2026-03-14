@@ -12,7 +12,8 @@ import java.util.Arrays;
 
 /**
  * 飞书事件加密解密工具类
- * 遵循飞书开放平台加密规范：https://open.feishu.cn/document/ukTMukTMukTM/uUTNz4SN1MjL1UzM
+ * 严格遵循飞书官方加密规范：https://open.feishu.cn/document/ukTMukTMukTM/uUTNz4SN1MjL1UzM
+ * 加密算法：AES-256-CBC，PKCS7填充
  *
  * @author system
  * @date 2026-03-14
@@ -32,30 +33,46 @@ public class FeishuCryptoUtil {
     private static final String TRANSFORMATION = "AES/CBC/PKCS5Padding";
     
     /**
-     * IV长度
+     * IV长度（固定16字节）
      */
     private static final int IV_LENGTH = 16;
     
     /**
+     * 内容长度字段长度（固定4字节，大端序）
+     */
+    private static final int CONTENT_LENGTH_SIZE = 4;
+    
+    /**
      * 解密飞书加密事件
      *
-     * @param encryptKey 飞书后台配置的encrypt_key
-     * @param encrypt 加密的内容
-     * @return 解密后的明文
+     * @param encryptKey 飞书后台配置的encrypt_key（不需要加末尾的=）
+     * @param encrypt 加密的内容（飞书回调的encrypt字段）
+     * @return 解密后的明文JSON
      * @throws Exception 解密异常
      */
     public static String decrypt(String encryptKey, String encrypt) throws Exception {
         if (encryptKey == null || encryptKey.trim().isEmpty()) {
             throw new IllegalArgumentException("encrypt_key cannot be empty");
         }
+        if (encrypt == null || encrypt.trim().isEmpty()) {
+            throw new IllegalArgumentException("encrypt content cannot be empty");
+        }
         
         try {
-            // 1. 对encrypt_key做base64解码，得到AES密钥
-            byte[] aesKey = Base64Utils.decodeFromString(encryptKey + "=");
-            SecretKeySpec secretKey = new SecretKeySpec(aesKey, ALGORITHM);
+            // 1. 处理encrypt_key：飞书提供的encrypt_key是base64编码，自动补全padding
+            String base64Key = encryptKey;
+            int padding = (4 - base64Key.length() % 4) % 4;
+            if (padding > 0) {
+                base64Key += "====".substring(0, padding);
+            }
+            byte[] aesKey = Base64Utils.decodeFromString(base64Key);
+            logger.debug("AES key length: {} bytes", aesKey.length);
             
-            // 2. 对encrypt内容做base64解码
+            // 2. 解码加密内容
             byte[] encryptedData = Base64Utils.decodeFromString(encrypt);
+            if (encryptedData.length < IV_LENGTH) {
+                throw new IllegalArgumentException("Invalid encrypted data: length " + encryptedData.length + " < 16 bytes");
+            }
             
             // 3. 提取IV（前16字节）
             byte[] iv = Arrays.copyOfRange(encryptedData, 0, IV_LENGTH);
@@ -65,29 +82,36 @@ public class FeishuCryptoUtil {
             byte[] ciphertext = Arrays.copyOfRange(encryptedData, IV_LENGTH, encryptedData.length);
             
             // 5. AES解密
+            SecretKeySpec secretKey = new SecretKeySpec(aesKey, ALGORITHM);
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec);
             byte[] decryptedData = cipher.doFinal(ciphertext);
             
-            // 6. 解析解密后的内容：前4字节是内容长度（大端序）
-            int contentLength = byteArrayToInt(Arrays.copyOfRange(decryptedData, 0, 4));
+            if (decryptedData.length < CONTENT_LENGTH_SIZE) {
+                throw new IllegalArgumentException("Decrypted data too short: " + decryptedData.length + " < 4 bytes");
+            }
             
-            // 7. 提取实际的JSON内容
-            return new String(Arrays.copyOfRange(decryptedData, 4, 4 + contentLength), StandardCharsets.UTF_8);
+            // 6. 解析内容长度：前4字节是大端序的内容长度
+            int contentLength = ((decryptedData[0] & 0xFF) << 24)
+                              | ((decryptedData[1] & 0xFF) << 16)
+                              | ((decryptedData[2] & 0xFF) << 8)
+                              |  (decryptedData[3] & 0xFF);
+            
+            logger.debug("Decrypted data length: {}, content length: {}", decryptedData.length, contentLength);
+            
+            // 7. 提取实际JSON内容：4字节之后的contentLength个字节
+            if (contentLength < 0 || contentLength > decryptedData.length - CONTENT_LENGTH_SIZE) {
+                throw new IllegalArgumentException("Invalid content length: " + contentLength + 
+                    ", available: " + (decryptedData.length - CONTENT_LENGTH_SIZE));
+            }
+            
+            String result = new String(decryptedData, CONTENT_LENGTH_SIZE, contentLength, StandardCharsets.UTF_8);
+            logger.debug("Decrypt success, result length: {}", result.length());
+            return result;
             
         } catch (Exception e) {
             logger.error("Failed to decrypt feishu event: {}", e.getMessage(), e);
-            throw new Exception("Decrypt failed", e);
+            throw new Exception("Decrypt failed: " + e.getMessage(), e);
         }
-    }
-    
-    /**
-     * 字节数组转int（大端序）
-     */
-    private static int byteArrayToInt(byte[] bytes) {
-        return ((bytes[0] & 0xFF) << 24) |
-               ((bytes[1] & 0xFF) << 16) |
-               ((bytes[2] & 0xFF) << 8) |
-               (bytes[3] & 0xFF);
     }
 }
