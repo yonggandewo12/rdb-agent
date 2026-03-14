@@ -5,7 +5,7 @@ spring:
   redis:
     host: localhost
     port: 6379
-    password: 
+    password: zhanghui444555
     database: 0
     timeout: 3000
     lettuce:
@@ -21,10 +21,10 @@ logging:
     org.springframework.data.redis: DEBUG
 
 feishu:
-  app-id: your_feishu_app_id
-  app-secret: your_feishu_app_secret
-  verification-token: your_verification_token
-  encrypt-key: your_encrypt_key
+  app-id: cli_a93e71c7b7211bd4
+  app-secret: gV6nHAl49GUEkpc4gaVTlcQDqVONPJQH
+  verification-token: zhanghui444555
+  encrypt-key: rGF6izpoNzGrzFpNuWLQJgPrE813N3kA
 
 llm:
   api-key: your_llm_api_key
