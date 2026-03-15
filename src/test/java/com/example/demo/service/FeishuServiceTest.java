@@ -27,8 +27,11 @@ public class FeishuServiceTest {
     
     @Test
     public void testHandleChallenge() {
-        String result = feishuService.handleChallenge("challenge123", "test-token");
-        assertEquals("challenge123", result);
+        // 测试正确token不抛异常
+        assertDoesNotThrow(() -> feishuService.handleChallenge("challenge123", "test-token"));
+        
+        // 测试错误token抛异常
+        assertThrows(RuntimeException.class, () -> feishuService.handleChallenge("challenge123", "wrong-token"));
     }
     
     @Test

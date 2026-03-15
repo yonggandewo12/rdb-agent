@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.anyString;
@@ -14,6 +15,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(FeishuController.class)
+@TestPropertySource(properties = "feishu.verification-token=test-token")
 public class FeishuControllerTest {
     
     @Autowired
@@ -29,9 +31,6 @@ public class FeishuControllerTest {
                 "\"challenge\":\"test-challenge-123\"," +
                 "\"token\":\"test-token\"" +
                 "}";
-        
-        when(feishuService.handleChallenge("test-challenge-123", "test-token"))
-                .thenReturn("test-challenge-123");
         
         mockMvc.perform(post("/api/feishu/webhook")
                         .contentType(MediaType.APPLICATION_JSON)

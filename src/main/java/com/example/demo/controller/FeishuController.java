@@ -34,6 +34,9 @@ public class FeishuController {
     @Value("${feishu.encrypt-key:}")
     private String encryptKey;
     
+    @Value("${feishu.verification-token}")
+    private String verificationToken;
+    
     private final FeishuService feishuService;
     
     @Autowired
@@ -69,19 +72,28 @@ public class FeishuController {
             
             // 3. 判断是否是URL验证请求
             if (plainNode.has("type") && "url_verification".equals(plainNode.get("type").asText())) {
-                FeishuChallengeRequest challengeRequest = OBJECT_MAPPER.readValue(plainRequestBody, FeishuChallengeRequest.class);
+                String challenge = plainNode.get("challenge").asText();
+                String token = plainNode.get("token").asText();
                 
-                feishuService.handleChallenge(
-                        challengeRequest.getToken(),
-                        challengeRequest.getToken()
-                );
+                // 校验token
+                if (!verificationToken.equals(token)) {
+                    logger.error("Invalid challenge token: {}", token);
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid token");
+                }
                 
                 Map<String, String> response = new HashMap<>();
-                response.put("challenge", challengeRequest.getChallenge());
+                response.put("challenge", challenge);
                 return ResponseEntity.ok(response);
             }
             
-            // 4. 处理消息事件
+            // 4. 校验事件token（所有事件都需要校验，防止伪造请求）
+            String eventToken = plainNode.get("header").get("token").asText();
+            if (!verificationToken.equals(eventToken)) {
+                logger.error("Invalid event token: {}", eventToken);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid token");
+            }
+            
+            // 5. 处理消息事件
             FeishuEventRequest eventRequest = OBJECT_MAPPER.readValue(plainRequestBody, FeishuEventRequest.class);
             
             String eventType = eventRequest.getHeader().getEventType();
