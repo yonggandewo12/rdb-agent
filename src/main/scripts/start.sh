@@ -32,7 +32,7 @@ else
 fi
 
 # JVM Options
-JAVA_OPTS="${JAVA_OPTS:- -Xms256m -Xmx512m -XX:+UseG1GC}"
+JAVA_OPTS="${JAVA_OPTS:- -Xms256m -Xmx512m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9999}"
 
 # Stop existing instance first
 echo "Stopping existing ${APP_NAME} instance..."

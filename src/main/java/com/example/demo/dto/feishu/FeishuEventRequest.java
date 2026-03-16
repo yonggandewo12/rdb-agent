@@ -1,9 +1,11 @@
 package com.example.demo.dto.feishu;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class FeishuEventRequest {
     
     @JsonProperty("schema")
@@ -16,6 +18,7 @@ public class FeishuEventRequest {
     private Event event;
     
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Header {
         @JsonProperty("event_id")
         private String eventId;
@@ -37,6 +40,7 @@ public class FeishuEventRequest {
     }
     
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Event {
         @JsonProperty("message")
         private Message message;
@@ -46,6 +50,7 @@ public class FeishuEventRequest {
     }
     
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Message {
         @JsonProperty("message_id")
         private String messageId;
@@ -67,6 +72,7 @@ public class FeishuEventRequest {
     }
     
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Sender {
         @JsonProperty("sender_id")
         private SenderId senderId;
@@ -79,6 +85,7 @@ public class FeishuEventRequest {
     }
     
     @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SenderId {
         @JsonProperty("union_id")
         private String unionId;
