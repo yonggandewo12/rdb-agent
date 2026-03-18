@@ -164,6 +164,41 @@ public class CommonConstant {
          * Redis操作指令-列表长度查询
          */
         public static final String OP_LLEN = "llen";
+        
+        /**
+         * Redis操作指令-哈希设置
+         */
+        public static final String OP_HSET = "hset";
+        
+        /**
+         * Redis操作指令-哈希批量设置
+         */
+        public static final String OP_HMSET = "hmset";
+        
+        /**
+         * Redis操作指令-哈希删除
+         */
+        public static final String OP_HDEL = "hdelete";
+        
+        /**
+         * Redis操作指令-列表左侧插入
+         */
+        public static final String OP_LPUSH = "lpush";
+        
+        /**
+         * Redis操作指令-列表右侧插入
+         */
+        public static final String OP_RPUSH = "rpush";
+        
+        /**
+         * Redis操作指令-集合添加
+         */
+        public static final String OP_SADD = "sadd";
+        
+        /**
+         * Redis操作指令-集合移除
+         */
+        public static final String OP_SREM = "srem";
     }
     
     /**

@@ -63,7 +63,7 @@ public class FeishuController {
                 }
                 
                 // 解密加密内容
-                plainRequestBody = FeishuCryptoUtil.decrypt(encryptKey, encryptContent);
+                plainRequestBody = FeishuCryptoUtil.decrypt(encryptContent, encryptKey);
                 logger.debug("Decrypted feishu event: {}", plainRequestBody);
             }
             

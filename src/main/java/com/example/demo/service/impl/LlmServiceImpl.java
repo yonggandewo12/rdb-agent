@@ -44,10 +44,13 @@ public class LlmServiceImpl implements LlmService {
      * 大模型提示词模板
      */
     private static final String PROMPT_TEMPLATE = "你是一个Redis查询专家，请根据用户的问题，输出要执行的Redis操作，格式为JSON，只返回JSON不要其他内容。\n" +
-            "支持的操作：get, set, delete, exists, hget, hgetall, lrange, smembers, ttl等。\n" +
+            "支持的操作：get, set, delete, exists, hget, hgetall, hset, hmset, hdelete, lrange, lpush, rpush, llen, smembers, sadd, srem, ttl等。\n" +
             "示例1：用户问\"查询key为user:1的value\"，返回{\"operation\":\"get\",\"key\":\"user:1\"}\n" +
             "示例2：用户问\"查询哈希key为user:info的name字段\"，返回{\"operation\":\"hget\",\"key\":\"user:info\",\"field\":\"name\"}\n" +
             "示例3：用户问\"设置key为name的值为张三，过期时间60秒\"，返回{\"operation\":\"set\",\"key\":\"name\",\"value\":\"张三\",\"expire\":60}\n" +
+            "示例4：用户问\"设置哈希user:info的age字段为25\"，返回{\"operation\":\"hset\",\"key\":\"user:info\",\"field\":\"age\",\"value\":\"25\"}\n" +
+            "示例5：用户问\"向列表user:list右侧插入元素hello\"，返回{\"operation\":\"rpush\",\"key\":\"user:list\",\"value\":\"hello\"}\n" +
+            "示例6：用户问\"向列表user:list左侧插入元素world\"，返回{\"operation\":\"lpush\",\"key\":\"user:list\",\"value\":\"world\"}\n" +
             "用户问题：%s";
     
     @Value("${llm.api-key}")
@@ -179,6 +182,31 @@ public class LlmServiceImpl implements LlmService {
                     }
                 case CommonConstant.Llm.OP_DELETE:
                     return Boolean.TRUE.equals(redisService.delete(key)) ? "删除成功" : "删除失败";
+                case CommonConstant.Llm.OP_HSET:
+                    String hField = opNode.get("field").asText();
+                    Object hValue = opNode.get("value").asText();
+                    redisService.hset(key, hField, hValue);
+                    return "哈希字段设置成功";
+                case CommonConstant.Llm.OP_HDEL:
+                    String[] delFields = opNode.get("fields").asText().split(",");
+                    Long delCount = redisService.hdelete(key, (Object[]) delFields);
+                    return "成功删除哈希字段" + delCount + "个";
+                case CommonConstant.Llm.OP_LPUSH:
+                    String lValue = opNode.get("value").asText();
+                    Long lpushCount = redisService.lpush(key, lValue);
+                    return "列表左侧插入成功，当前列表长度：" + lpushCount;
+                case CommonConstant.Llm.OP_RPUSH:
+                    String rValue = opNode.get("value").asText();
+                    Long rpushCount = redisService.rpush(key, rValue);
+                    return "列表右侧插入成功，当前列表长度：" + rpushCount;
+                case CommonConstant.Llm.OP_SADD:
+                    String[] sValues = opNode.get("values").asText().split(",");
+                    Long saddCount = redisService.sadd(key, sValues);
+                    return "集合添加成功，添加元素数量：" + saddCount;
+                case CommonConstant.Llm.OP_SREM:
+                    String[] sremValues = opNode.get("values").asText().split(",");
+                    Long sremCount = redisService.srem(key, sremValues);
+                    return "集合移除成功，移除元素数量：" + sremCount;
                 default:
                     return CommonConstant.ErrorMessage.UNSUPPORTED_OPERATION + operation;
             }

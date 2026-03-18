@@ -87,8 +87,18 @@ public class FeishuCryptoUtil {
      * 从解密后的字符串中，提取出真正的业务 JSON
      */
     private static String extractJson(String str) {
-        // 格式：16位随机字符串 + 4位数据长度 + JSON 正文
-        return str.substring(16);
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+        // 从第一个{开始，匹配到最后一个}结束
+        int startIndex = str.indexOf('{');
+        int endIndex = str.lastIndexOf('}');
+        if (startIndex >= 0 && endIndex >= 0 && endIndex > startIndex) {
+            return str.substring(startIndex, endIndex + 1);
+        }
+        // 无法匹配JSON结构时返回原字符串
+        logger.warn("Could not extract valid JSON from decrypted content: {}", str);
+        return str;
     }
 
     public static void main(String[] args) throws Exception {
