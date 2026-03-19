@@ -1,6 +1,8 @@
 package com.example.demo.service.impl;
 
 import com.example.demo.constant.CommonConstant;
+import com.example.demo.entity.RedisDatasource;
+import com.example.demo.service.DynamicRedisService;
 import com.example.demo.service.FeishuMessageService;
 import com.example.demo.service.FeishuService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -30,11 +32,14 @@ public class FeishuServiceImpl implements FeishuService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final LlmServiceImpl llmService;
     private final FeishuMessageService feishuMessageService;
-    
+    private final DynamicRedisService dynamicRedisService;
+
     @Autowired
-    public FeishuServiceImpl(LlmServiceImpl llmService, FeishuMessageService feishuMessageService) {
+    public FeishuServiceImpl(LlmServiceImpl llmService, FeishuMessageService feishuMessageService,
+                            DynamicRedisService dynamicRedisService) {
         this.llmService = llmService;
         this.feishuMessageService = feishuMessageService;
+        this.dynamicRedisService = dynamicRedisService;
     }
     
     /**
@@ -70,7 +75,7 @@ public class FeishuServiceImpl implements FeishuService {
      */
     @Override
     public void handleMessageEvent(String eventType, String content, String chatId, String openId, 
-                                  String messageId, String chatType) {
+                                   String messageId, String chatType) {
         if (!StringUtils.hasText(eventType) || !StringUtils.hasText(content) 
                 || !StringUtils.hasText(chatId) || !StringUtils.hasText(openId)
                 || !StringUtils.hasText(messageId) || !StringUtils.hasText(chatType)) {
@@ -89,6 +94,17 @@ public class FeishuServiceImpl implements FeishuService {
             logger.info("Received Feishu message from user {} in chat {}: {}", 
                     openId, chatId, cleanContent);
             
+            // 根据chatId查找对应的Redis数据源
+            RedisDatasource datasource = dynamicRedisService.getDatasourceByChatId(chatId);
+            if (datasource == null) {
+                sendReply(chatType, chatId, openId, messageId, 
+                        "未找到该群聊对应的Redis数据源配置，请先在管理后台配置！");
+                return;
+            }
+            
+            logger.info("Using Redis datasource: groupId={}, redis={}:{}", 
+                    datasource.getGroupId(), datasource.getRedisHost(), datasource.getRedisPort());
+            
             // 1. 调用大模型分析用户查询，生成Redis操作指令
             String operationJson = llmService.analyzeQuery(cleanContent);
             if (!StringUtils.hasText(operationJson)) {
@@ -96,13 +112,13 @@ public class FeishuServiceImpl implements FeishuService {
                 return;
             }
             
-            // 2. 执行Redis操作
-            Object result = llmService.executeRedisOperation(operationJson);
+            // 2. 使用动态数据源执行Redis操作
+            Object result = llmService.executeRedisOperation(operationJson, datasource.getGroupId(), dynamicRedisService);
             
             // 3. 生成自然语言回答
             String response = llmService.generateResponse(result, cleanContent);
             
-            // 4. 回复消息到飞书
+            // 4. 回复消息到对应的群组
             sendReply(chatType, chatId, openId, messageId, response);
             
         } catch (JsonProcessingException e) {

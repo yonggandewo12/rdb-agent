@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDB-Agent 管理后台</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="root">
+        <div class="header">
+            <div class="header-content">
+                <h1>RDB-Agent Admin</h1>
+                <div class="nav-tabs">
+                    <button class="nav-tab active" id="tab-datasources">Datasources</button>
+                    <button class="nav-tab" id="tab-tasks">Scheduled Tasks</button>
+                </div>
+            </div>
+        </div>
+        <div class="container">
+            <div id="content-datasources" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Redis Datasources</h2>
+                        <button class="btn btn-primary" id="btn-add-datasource">+ Add Datasource</button>
+                    </div>
+                    <div id="datasources-table-container">
+                        <div class="loading">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            <div id="content-tasks" class="content-section" style="display:none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Scheduled Tasks</h2>
+                        <button class="btn btn-primary" id="btn-add-task">+ Add Task</button>
+                    </div>
+                    <div id="tasks-table-container">
+                        <div class="loading">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="datasource-modal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="datasource-modal-title">Add Datasource</h3>
+                <button class="modal-close" id="close-datasource-modal">&times;</button>
+            </div>
+            <form id="datasource-form">
+                <div class="modal-body">
+                    <input type="hidden" id="datasource-id">
+                    <div class="form-group">
+                        <label>Group ID *</label>
+                        <input type="text" id="datasource-groupId" required placeholder="e.g. group_001">
+                    </div>
+                    <div class="form-group">
+                        <label>Feishu Chat ID *</label>
+                        <input type="text" id="datasource-chatId" required placeholder="Feishu group chat ID">
+                    </div>
+                    <div class="form-group">
+                        <label>Group Name *</label>
+                        <input type="text" id="datasource-groupName" required placeholder="Group display name">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Redis Host *</label>
+                            <input type="text" id="datasource-redisHost" required placeholder="localhost">
+                        </div>
+                        <div class="form-group">
+                            <label>Redis Port *</label>
+                            <input type="number" id="datasource-redisPort" required value="6379">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Redis Password</label>
+                            <input type="password" id="datasource-redisPassword" placeholder="Leave empty if no password">
+                        </div>
+                        <div class="form-group">
+                            <label>Database # *</label>
+                            <input type="number" id="datasource-redisDatabase" required value="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="datasource-description" placeholder="Optional description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-datasource-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="task-modal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="task-modal-title">Add Task</h3>
+                <button class="modal-close" id="close-task-modal">&times;</button>
+            </div>
+            <form id="task-form">
+                <div class="modal-body">
+                    <input type="hidden" id="task-id">
+                    <div class="form-group">
+                        <label>Task Name *</label>
+                        <input type="text" id="task-taskName" required placeholder="Task display name">
+                    </div>
+                    <div class="form-group">
+                        <label>Group ID *</label>
+                        <select id="task-groupId" required></select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Task Type *</label>
+                            <select id="task-taskType" required>
+                                <option value="all">All (Slow Query + Big Key)</option>
+                                <option value="slow_query">Slow Query Only</option>
+                                <option value="big_key">Big Key Only</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Cron Expression *</label>
+                            <input type="text" id="task-cronExpression" required value="0 0 * * * ?" placeholder="0 0 * * * ?">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Slow Query Threshold (μs)</label>
+                            <input type="number" id="task-slowQueryThreshold" value="10000">
+                        </div>
+                        <div class="form-group">
+                            <label>Big Key Memory Threshold (bytes)</label>
+                            <input type="number" id="task-bigKeyMemoryThreshold" value="10485760">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Big Key Count Threshold</label>
+                            <input type="number" id="task-bigKeyCountThreshold" value="5000">
+                        </div>
+                        <div class="form-group">
+                            <label>Feishu Chat ID *</label>
+                            <input type="text" id="task-notifyChatId" required placeholder="Feishu chat ID">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Enabled</label>
+                        <select id="task-enabled">
+                            <option value="1">Yes</option>
+                            <option value="0">No</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancel-task-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/app-simple.js"></script>
+</body>
+</html>

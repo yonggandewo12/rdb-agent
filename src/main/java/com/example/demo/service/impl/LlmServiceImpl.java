@@ -1,6 +1,7 @@
 package com.example.demo.service.impl;
 
 import com.example.demo.constant.CommonConstant;
+import com.example.demo.service.DynamicRedisService;
 import com.example.demo.service.LlmService;
 import com.example.demo.service.RedisService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -68,7 +69,91 @@ public class LlmServiceImpl implements LlmService {
     public LlmServiceImpl(RedisService redisService) {
         this.redisService = redisService;
     }
-    
+
+    /**
+     * 执行Redis操作（使用动态数据源）
+     *
+     * @param operationJson 操作指令JSON
+     * @param groupId 数据源分组ID
+     * @return 操作结果
+     */
+    public Object executeRedisOperation(String operationJson, String groupId, 
+                                         DynamicRedisService dynamicRedisService) {
+        if (!StringUtils.hasText(operationJson)) {
+            return CommonConstant.ErrorMessage.PARAM_NULL;
+        }
+        
+        try {
+            JsonNode opNode = OBJECT_MAPPER.readTree(operationJson);
+            String operation = opNode.get("operation").asText();
+            String key = opNode.get("key").asText();
+            
+            switch (operation.toLowerCase()) {
+                case CommonConstant.Llm.OP_GET:
+                    return dynamicRedisService.get(groupId, key);
+                case CommonConstant.Llm.OP_EXISTS:
+                    return dynamicRedisService.exists(groupId, key);
+                case CommonConstant.Llm.OP_TTL:
+                    return dynamicRedisService.ttl(groupId, key);
+                case CommonConstant.Llm.OP_HGET:
+                    String field = opNode.get("field").asText();
+                    return dynamicRedisService.hget(groupId, key, field);
+                case CommonConstant.Llm.OP_HGETALL:
+                    return dynamicRedisService.hgetAll(groupId, key);
+                case CommonConstant.Llm.OP_LRANGE:
+                    long start = opNode.has("start") ? opNode.get("start").asLong() : 0;
+                    long end = opNode.has("end") ? opNode.get("end").asLong() : -1;
+                    return dynamicRedisService.lrange(groupId, key, start, end);
+                case CommonConstant.Llm.OP_SMEMBERS:
+                    return dynamicRedisService.smembers(groupId, key);
+                case CommonConstant.Llm.OP_LLEN:
+                    return dynamicRedisService.llen(groupId, key);
+                case CommonConstant.Llm.OP_SET:
+                    String value = opNode.get("value").asText();
+                    if (opNode.has("expire")) {
+                        long expire = opNode.get("expire").asLong();
+                        dynamicRedisService.set(groupId, key, value, expire);
+                        return "设置成功";
+                    } else {
+                        dynamicRedisService.set(groupId, key, value);
+                        return "设置成功";
+                    }
+                case CommonConstant.Llm.OP_DELETE:
+                    return Boolean.TRUE.equals(dynamicRedisService.delete(groupId, key)) ? "删除成功" : "删除失败";
+                case CommonConstant.Llm.OP_HSET:
+                    String hField = opNode.get("field").asText();
+                    Object hValue = opNode.get("value").asText();
+                    dynamicRedisService.hset(groupId, key, hField, hValue);
+                    return "哈希字段设置成功";
+                case CommonConstant.Llm.OP_HDEL:
+                    String[] delFields = opNode.get("fields").asText().split(",");
+                    Long delCount = dynamicRedisService.hdelete(groupId, key, (Object[]) delFields);
+                    return "成功删除哈希字段" + delCount + "个";
+                case CommonConstant.Llm.OP_LPUSH:
+                    String lValue = opNode.get("value").asText();
+                    Long lpushCount = dynamicRedisService.lpush(groupId, key, lValue);
+                    return "列表左侧插入成功，当前列表长度：" + lpushCount;
+                case CommonConstant.Llm.OP_RPUSH:
+                    String rValue = opNode.get("value").asText();
+                    Long rpushCount = dynamicRedisService.rpush(groupId, key, rValue);
+                    return "列表右侧插入成功，当前列表长度：" + rpushCount;
+                case CommonConstant.Llm.OP_SADD:
+                    String[] sValues = opNode.get("values").asText().split(",");
+                    Long saddCount = dynamicRedisService.sadd(groupId, key, sValues);
+                    return "集合添加成功，添加元素数量：" + saddCount;
+                case CommonConstant.Llm.OP_SREM:
+                    String[] sremValues = opNode.get("values").asText().split(",");
+                    Long sremCount = dynamicRedisService.srem(groupId, key, sremValues);
+                    return "集合移除成功，移除元素数量：" + sremCount;
+                default:
+                    return CommonConstant.ErrorMessage.UNSUPPORTED_OPERATION + operation;
+            }
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to parse operation json: {}", operationJson, e);
+            return "操作解析失败";
+        }
+    }
+
     /**
      * 调用大模型分析用户query，返回要执行的Redis操作指令
      *
@@ -213,6 +298,55 @@ public class LlmServiceImpl implements LlmService {
         } catch (JsonProcessingException e) {
             logger.error("Failed to parse operation json: {}", operationJson, e);
             return "操作解析失败";
+        }
+    }
+    
+    @Override
+    public String analyzeRedisReport(java.util.List<java.util.Map<String, Object>> slowQueries, 
+                                    java.util.List<java.util.Map<String, Object>> bigKeys) {
+        try {
+            String prompt = String.format(
+                    "你是一位Redis性能优化专家。请分析以下Redis监控数据，生成简洁的优化建议：\n\n" +
+                    "慢查询列表：%s\n\n" +
+                    "大Key列表：%s\n\n" +
+                    "请给出3-5条具体的优化建议，每条建议不超过50字。",
+                    slowQueries != null ? slowQueries.toString() : "无",
+                    bigKeys != null ? bigKeys.toString() : "无"
+            );
+            
+            java.util.Map<String, Object> systemMessage = new java.util.HashMap<>(4);
+            systemMessage.put("role", "system");
+            systemMessage.put("content", "你是一位Redis性能优化专家，只输出优化建议，每条建议单独一行。");
+            
+            java.util.Map<String, Object> userMessage = new java.util.HashMap<>(4);
+            userMessage.put("role", "user");
+            userMessage.put("content", prompt);
+            
+            java.util.Map<String, Object> requestBody = new java.util.HashMap<>(8);
+            requestBody.put("model", model);
+            requestBody.put("messages", new Object[]{systemMessage, userMessage});
+            requestBody.put("temperature", 0.3);
+            
+            Request request = new Request.Builder()
+                    .url(baseUrl)
+                    .addHeader("Authorization", CommonConstant.AUTH_HEADER_PREFIX + apiKey)
+                    .addHeader("Content-Type", CommonConstant.CONTENT_TYPE_JSON)
+                    .post(RequestBody.create(OBJECT_MAPPER.writeValueAsString(requestBody), 
+                            MediaType.parse(CommonConstant.CONTENT_TYPE_JSON)))
+                    .build();
+            
+            try (Response response = OK_HTTP_CLIENT.newCall(request).execute()) {
+                if (!response.isSuccessful() || response.body() == null) {
+                    logger.error("LLM API call failed, code: {}", response.code());
+                    return "建议使用Redis调优最佳实践进行优化。";
+                }
+                String responseBody = response.body().string();
+                JsonNode jsonNode = OBJECT_MAPPER.readTree(responseBody);
+                return jsonNode.get("choices").get(0).get("message").get("content").asText();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to analyze redis report with LLM", e);
+            return "建议使用Redis调优最佳实践进行优化。";
         }
     }
 }

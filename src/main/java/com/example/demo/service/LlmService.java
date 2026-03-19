@@ -1,5 +1,8 @@
 package com.example.demo.service;
 
+import java.util.List;
+import java.util.Map;
+
 public interface LlmService {
     
     /**
@@ -16,4 +19,12 @@ public interface LlmService {
      * @return 自然语言回答
      */
     String generateResponse(Object operation, String userQuery);
+    
+    /**
+     * 分析Redis监控报告，生成优化建议
+     * @param slowQueries 慢查询列表
+     * @param bigKeys 大key列表
+     * @return 优化建议
+     */
+    String analyzeRedisReport(List<Map<String, Object>> slowQueries, List<Map<String, Object>> bigKeys);
 }

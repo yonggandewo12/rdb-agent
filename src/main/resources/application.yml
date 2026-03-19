@@ -2,6 +2,17 @@ server:
   port: 8999
 
 spring:
+  main:
+    allow-circular-references: true
+
+  # MySQL配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/rdb_agent?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: dev
+    password: 1q2w3e4r
+
+  # Redis配置（默认Redis，分组Redis在数据库中配置）
   redis:
     host: localhost
     port: 6379
@@ -13,6 +24,22 @@ spring:
         max-active: 8
         max-idle: 8
         min-idle: 0
+
+  # Quartz配置（单机模式）
+  quartz:
+    job-store-type: memory
+
+# MyBatis-Plus配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: is_deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
 
 logging:
   level:

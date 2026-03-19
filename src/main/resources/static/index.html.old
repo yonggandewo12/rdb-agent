@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDB-Agent 管理后台</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="root">
+        <div class="header">
+            <div class="header-content">
+                <h1>RDB-Agent Admin</h1>
+                <div class="nav-tabs">
+                    <button class="nav-tab active" id="tab-datasources">Datasources</button>
+                    <button class="nav-tab" id="tab-tasks">Scheduled Tasks</button>
+                </div>
+            </div>
+        </div>
+        <div class="container">
+            <div id="content-datasources" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Redis Datasources</h2>
+                        <button class="btn btn-primary" id="btn-add-datasource">+ Add Datasource</button>
+                    </div>
+                    <div id="datasources-table-container">
+                        <div class="loading">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            <div id="content-tasks" class="content-section" style="display:none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Scheduled Tasks</h2>
+                        <button class="btn btn-primary" id="btn-add-task">+ Add Task</button>
+                    </div>
+                    <div id="tasks-table-container">
+                        <div class="loading">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="js/app-simple.js"></script>
+</body>
+</html>
