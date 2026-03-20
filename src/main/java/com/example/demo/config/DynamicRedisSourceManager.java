@@ -4,11 +4,13 @@ import com.example.demo.entity.RedisDatasource;
 import com.example.demo.service.RedisDatasourceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -37,17 +39,34 @@ public class DynamicRedisSourceManager {
      * 添加Redis数据源
      */
     public void addRedisSource(RedisDatasource datasource) {
+        if (datasource == null) {
+            throw new IllegalArgumentException("Redis数据源不能为空");
+        }
+
+        String redisHost = datasource.getRedisHost();
+        if (redisHost == null || redisHost.trim().isEmpty()) {
+            throw new IllegalArgumentException("Redis地址不能为空");
+        }
+
+        int redisPort = datasource.getRedisPort() != null ? datasource.getRedisPort() : 6379;
+        int redisDatabase = datasource.getRedisDatabase() != null ? datasource.getRedisDatabase() : 0;
+        int timeout = datasource.getTimeout() != null && datasource.getTimeout() > 0 ? datasource.getTimeout() : 3000;
+
         // 创建Redis配置
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
-        config.setHostName(datasource.getRedisHost());
-        config.setPort(datasource.getRedisPort());
-        config.setDatabase(datasource.getRedisDatabase());
+        config.setHostName(redisHost);
+        config.setPort(redisPort);
+        config.setDatabase(redisDatabase);
         if (datasource.getRedisPassword() != null && !datasource.getRedisPassword().isEmpty()) {
             config.setPassword(datasource.getRedisPassword());
         }
 
         // 创建连接工厂
-        LettuceConnectionFactory factory = new LettuceConnectionFactory(config);
+        LettuceClientConfiguration clientConfiguration = LettuceClientConfiguration.builder()
+                .commandTimeout(Duration.ofMillis(timeout))
+                .shutdownTimeout(Duration.ZERO)
+                .build();
+        LettuceConnectionFactory factory = new LettuceConnectionFactory(config, clientConfiguration);
         factory.afterPropertiesSet();
 
         // 创建RedisTemplate

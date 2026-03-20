@@ -22,6 +22,11 @@ public interface RedisDatasourceService extends IService<RedisDatasource> {
     RedisDatasource getByChatId(String chatId);
 
     /**
+     * 测试数据源连接
+     */
+    void testConnection(RedisDatasource datasource);
+
+    /**
      * 刷新数据源缓存
      */
     void refreshCache(String groupId);

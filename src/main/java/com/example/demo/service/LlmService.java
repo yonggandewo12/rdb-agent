@@ -13,6 +13,13 @@ public interface LlmService {
     String analyzeQuery(String userQuery);
     
     /**
+     * 直接调用大模型回答用户的问题（不执行Redis操作）
+     * @param userQuery 用户输入的查询内容
+     * @return 自然语言回答
+     */
+    String directAnswer(String userQuery);
+    
+    /**
      * 执行Redis操作并生成自然语言回答
      * @param operation Redis操作结果
      * @param userQuery 用户原始查询

@@ -2,6 +2,8 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.feishu.FeishuChallengeRequest;
 import com.example.demo.dto.feishu.FeishuEventRequest;
+import com.example.demo.service.FeishuEventDedupService;
+import com.example.demo.service.FeishuMessageService;
 import com.example.demo.service.FeishuService;
 import com.example.demo.utils.FeishuCryptoUtil;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -38,10 +40,14 @@ public class FeishuController {
     private String verificationToken;
     
     private final FeishuService feishuService;
+    private final FeishuEventDedupService feishuEventDedupService;
+    private final FeishuMessageService feishuMessageService;
     
     @Autowired
-    public FeishuController(FeishuService feishuService) {
+    public FeishuController(FeishuService feishuService, FeishuEventDedupService feishuEventDedupService, FeishuMessageService feishuMessageService) {
         this.feishuService = feishuService;
+        this.feishuEventDedupService = feishuEventDedupService;
+        this.feishuMessageService = feishuMessageService;
     }
     
     /**
@@ -97,12 +103,21 @@ public class FeishuController {
             FeishuEventRequest eventRequest = OBJECT_MAPPER.readValue(plainRequestBody, FeishuEventRequest.class);
             
             String eventType = eventRequest.getHeader().getEventType();
+            String eventId = eventRequest.getHeader().getEventId();
             logger.info("Received Feishu event: {}", eventType);
             
             // 只处理@机器人的消息事件
             if ("im.message.receive_v1".equals(eventType)) {
                 FeishuEventRequest.Message message = eventRequest.getEvent().getMessage();
                 FeishuEventRequest.Sender sender = eventRequest.getEvent().getSender();
+                String dedupKey = StringUtils.hasText(message.getMessageId())
+                        ? "message:" + message.getMessageId()
+                        : "event:" + eventId;
+
+                if (feishuEventDedupService.isDuplicate(dedupKey)) {
+                    logger.info("Skip duplicate Feishu message: {}", dedupKey);
+                    return ResponseEntity.ok().build();
+                }
                 
                 feishuService.handleMessageEvent(
                         eventType,
@@ -119,6 +134,31 @@ public class FeishuController {
         } catch (Exception e) {
             logger.error("Failed to process feishu webhook request", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * 通过link_token获取chat_id
+     * @param params 请求参数，包含link_token
+     * @return chat_id
+     */
+    @PostMapping("/get-chat-id")
+    public ResponseEntity<Map<String, Object>> getChatIdByLinkToken(@RequestBody Map<String, String> params) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            String linkToken = params.get("link_token");
+            if (!StringUtils.hasText(linkToken)) {
+                result.put("message", "Link Token不能为空");
+                return ResponseEntity.badRequest().body(result);
+            }
+            
+            String chatId = feishuMessageService.getChatIdByLinkToken(linkToken);
+            result.put("chat_id", chatId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("Failed to get chat id by link token", e);
+            result.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(result);
         }
     }
 }

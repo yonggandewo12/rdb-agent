@@ -78,7 +78,7 @@ public class FeishuReportService {
     
     private String generateReportContent(Map<String, Object> reportData) {
         String taskName = (String) reportData.get("taskName");
-        String groupId = (String) reportData.get("groupId");
+        String datasourceName = (String) reportData.get("datasourceName");
         String redisHost = (String) reportData.get("redisHost");
         String generateTime = (String) reportData.get("generateTime");
         
@@ -91,7 +91,7 @@ public class FeishuReportService {
         content.append("# Redis监控报告\n\n");
         content.append("## 基本信息\n");
         content.append(String.format("- 任务名称: %s\n", taskName));
-        content.append(String.format("- 分组ID: %s\n", groupId));
+        content.append(String.format("- 数据源: %s\n", datasourceName));
         content.append(String.format("- Redis实例: %s\n", redisHost));
         content.append(String.format("- 生成时间: %s\n\n", generateTime));
         

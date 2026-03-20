@@ -68,6 +68,60 @@ public class FeishuMessageServiceImpl implements FeishuMessageService {
             return (String) respMap.get("tenant_access_token");
         }
     }
+
+    @Override
+    public String getChatIdByLinkToken(String linkToken) {
+        if (!StringUtils.hasText(linkToken)) {
+            throw new IllegalArgumentException("Link Token不能为空");
+        }
+        
+        try {
+            String accessToken = getTenantAccessToken();
+            
+            Map<String, String> reqBody = new HashMap<>(2);
+            reqBody.put("link_token", linkToken);
+            
+            Request request = new Request.Builder()
+                    .url("https://open.feishu.cn/open-apis/im/v1/chats/by_link_token")
+                    .addHeader("Authorization", CommonConstant.AUTH_HEADER_PREFIX + accessToken)
+                    .addHeader("Content-Type", CommonConstant.CONTENT_TYPE_JSON)
+                    .post(RequestBody.create(OBJECT_MAPPER.writeValueAsString(reqBody), 
+                            MediaType.parse(CommonConstant.CONTENT_TYPE_JSON)))
+                    .build();
+            
+            try (Response response = OK_HTTP_CLIENT.newCall(request).execute()) {
+                if (!response.isSuccessful() || response.body() == null) {
+                    logger.error("Get chat id failed, code: {}", response.code());
+                    throw new RuntimeException("获取ChatID失败，HTTP错误码：" + response.code());
+                }
+                String responseBody = response.body().string();
+                Map<String, Object> respMap = OBJECT_MAPPER.readValue(responseBody, Map.class);
+                
+                Integer code = (Integer) respMap.get("code");
+                if (code != null && code != 0) {
+                    String msg = (String) respMap.get("msg");
+                    logger.error("Get chat id failed, code: {}, msg: {}", code, msg);
+                    throw new RuntimeException("获取ChatID失败：" + msg);
+                }
+                
+                Map<String, Object> data = (Map<String, Object>) respMap.get("data");
+                if (data == null) {
+                    throw new RuntimeException("获取ChatID失败：返回数据为空");
+                }
+                
+                Map<String, Object> chat = (Map<String, Object>) data.get("chat");
+                if (chat == null) {
+                    throw new RuntimeException("获取ChatID失败：未找到群聊信息");
+                }
+                
+                return (String) chat.get("chat_id");
+            }
+            
+        } catch (Exception e) {
+            logger.error("Failed to get chat id by link token: {}", linkToken, e);
+            throw new RuntimeException("获取ChatID失败：" + e.getMessage(), e);
+        }
+    }
     
     /**
      * 发送文本消息给用户

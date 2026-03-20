@@ -30,6 +30,9 @@ public class AdminController {
     
     @PostMapping("/datasources")
     public ResponseEntity<Void> addDatasource(@RequestBody RedisDatasource datasource) {
+        if (datasource.getGroupId() == null || datasource.getGroupId().trim().isEmpty()) {
+            datasource.setGroupId(java.util.UUID.randomUUID().toString().replace("-", ""));
+        }
         redisDatasourceService.save(datasource);
         redisDatasourceService.refreshCache(datasource.getGroupId());
         return ResponseEntity.ok().build();
@@ -37,7 +40,12 @@ public class AdminController {
     
     @PutMapping("/datasources/{id}")
     public ResponseEntity<Void> updateDatasource(@PathVariable Long id, @RequestBody RedisDatasource datasource) {
+        RedisDatasource existing = redisDatasourceService.getById(id);
+        if (existing == null) {
+            return ResponseEntity.notFound().build();
+        }
         datasource.setId(id);
+        datasource.setGroupId(existing.getGroupId());
         redisDatasourceService.updateById(datasource);
         redisDatasourceService.refreshCache(datasource.getGroupId());
         return ResponseEntity.ok().build();
@@ -56,7 +64,11 @@ public class AdminController {
     @PostMapping("/datasources/{groupId}/test")
     public ResponseEntity<String> testDatasource(@PathVariable String groupId) {
         try {
-            redisDatasourceService.getByGroupId(groupId);
+            RedisDatasource datasource = redisDatasourceService.getByGroupId(groupId);
+            if (datasource == null) {
+                return ResponseEntity.badRequest().body("连接失败: 数据源不存在");
+            }
+            redisDatasourceService.testConnection(datasource);
             return ResponseEntity.ok("连接成功");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("连接失败: " + e.getMessage());

@@ -10,10 +10,10 @@
     <div id="root">
         <div class="header">
             <div class="header-content">
-                <h1>RDB-Agent Admin</h1>
+                <h1>RDB-Agent 管理后台</h1>
                 <div class="nav-tabs">
-                    <button class="nav-tab active" id="tab-datasources">Datasources</button>
-                    <button class="nav-tab" id="tab-tasks">Scheduled Tasks</button>
+                    <button class="nav-tab active" id="tab-datasources">数据源管理</button>
+                    <button class="nav-tab" id="tab-tasks">定时任务管理</button>
                 </div>
             </div>
         </div>
@@ -21,22 +21,22 @@
             <div id="content-datasources" class="content-section">
                 <div class="card">
                     <div class="card-header">
-                        <h2>Redis Datasources</h2>
-                        <button class="btn btn-primary" id="btn-add-datasource">+ Add Datasource</button>
+                        <h2>Redis 数据源</h2>
+                        <button class="btn btn-primary" id="btn-add-datasource">+ 新增数据源</button>
                     </div>
                     <div id="datasources-table-container">
-                        <div class="loading">Loading...</div>
+                        <div class="loading">加载中...</div>
                     </div>
                 </div>
             </div>
             <div id="content-tasks" class="content-section" style="display:none;">
                 <div class="card">
                     <div class="card-header">
-                        <h2>Scheduled Tasks</h2>
-                        <button class="btn btn-primary" id="btn-add-task">+ Add Task</button>
+                        <h2>定时任务</h2>
+                        <button class="btn btn-primary" id="btn-add-task">+ 新增任务</button>
                     </div>
                     <div id="tasks-table-container">
-                        <div class="loading">Loading...</div>
+                        <div class="loading">加载中...</div>
                     </div>
                 </div>
             </div>
@@ -46,52 +46,48 @@
     <div id="datasource-modal" class="modal-overlay" style="display:none;">
         <div class="modal">
             <div class="modal-header">
-                <h3 id="datasource-modal-title">Add Datasource</h3>
+                <h3 id="datasource-modal-title">新增数据源</h3>
                 <button class="modal-close" id="close-datasource-modal">&times;</button>
             </div>
             <form id="datasource-form">
                 <div class="modal-body">
                     <input type="hidden" id="datasource-id">
                     <div class="form-group">
-                        <label>Group ID *</label>
-                        <input type="text" id="datasource-groupId" required placeholder="e.g. group_001">
+                        <label>飞书群聊 ID *</label>
+                        <input type="text" id="datasource-chatId" required placeholder="请输入飞书群聊 ID">
                     </div>
                     <div class="form-group">
-                        <label>Feishu Chat ID *</label>
-                        <input type="text" id="datasource-chatId" required placeholder="Feishu group chat ID">
-                    </div>
-                    <div class="form-group">
-                        <label>Group Name *</label>
-                        <input type="text" id="datasource-groupName" required placeholder="Group display name">
+                        <label>分组名称 *</label>
+                        <input type="text" id="datasource-groupName" required placeholder="请输入分组名称">
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Redis Host *</label>
+                            <label>Redis 地址 *</label>
                             <input type="text" id="datasource-redisHost" required placeholder="localhost">
                         </div>
                         <div class="form-group">
-                            <label>Redis Port *</label>
+                            <label>Redis 端口 *</label>
                             <input type="number" id="datasource-redisPort" required value="6379">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Redis Password</label>
-                            <input type="password" id="datasource-redisPassword" placeholder="Leave empty if no password">
+                            <label>Redis 密码</label>
+                            <input type="password" id="datasource-redisPassword" placeholder="无密码可留空">
                         </div>
                         <div class="form-group">
-                            <label>Database # *</label>
+                            <label>数据库编号 *</label>
                             <input type="number" id="datasource-redisDatabase" required value="0">
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Description</label>
-                        <input type="text" id="datasource-description" placeholder="Optional description">
+                        <label>描述</label>
+                        <input type="text" id="datasource-description" placeholder="可选描述信息">
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" id="cancel-datasource-modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" class="btn btn-secondary" id="cancel-datasource-modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
                 </div>
             </form>
         </div>
@@ -100,65 +96,65 @@
     <div id="task-modal" class="modal-overlay" style="display:none;">
         <div class="modal">
             <div class="modal-header">
-                <h3 id="task-modal-title">Add Task</h3>
+                <h3 id="task-modal-title">新增任务</h3>
                 <button class="modal-close" id="close-task-modal">&times;</button>
             </div>
             <form id="task-form">
                 <div class="modal-body">
                     <input type="hidden" id="task-id">
                     <div class="form-group">
-                        <label>Task Name *</label>
-                        <input type="text" id="task-taskName" required placeholder="Task display name">
+                        <label>任务名称 *</label>
+                        <input type="text" id="task-taskName" required placeholder="请输入任务名称">
                     </div>
                     <div class="form-group">
-                        <label>Group ID *</label>
+                        <label>数据源 *</label>
                         <select id="task-groupId" required></select>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Task Type *</label>
+                            <label>任务类型 *</label>
                             <select id="task-taskType" required>
-                                <option value="all">All (Slow Query + Big Key)</option>
-                                <option value="slow_query">Slow Query Only</option>
-                                <option value="big_key">Big Key Only</option>
+                                <option value="all">全部（慢查询 + 大 Key）</option>
+                                <option value="slow_query">仅慢查询</option>
+                                <option value="big_key">仅大 Key</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Cron Expression *</label>
+                            <label>Cron 表达式 *</label>
                             <input type="text" id="task-cronExpression" required value="0 0 * * * ?" placeholder="0 0 * * * ?">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Slow Query Threshold (μs)</label>
+                            <label>慢查询阈值（微秒）</label>
                             <input type="number" id="task-slowQueryThreshold" value="10000">
                         </div>
                         <div class="form-group">
-                            <label>Big Key Memory Threshold (bytes)</label>
+                            <label>大 Key 内存阈值（字节）</label>
                             <input type="number" id="task-bigKeyMemoryThreshold" value="10485760">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Big Key Count Threshold</label>
+                            <label>大 Key 元素阈值</label>
                             <input type="number" id="task-bigKeyCountThreshold" value="5000">
                         </div>
                         <div class="form-group">
-                            <label>Feishu Chat ID *</label>
-                            <input type="text" id="task-notifyChatId" required placeholder="Feishu chat ID">
+                            <label>飞书通知群 ID *</label>
+                            <input type="text" id="task-notifyChatId" required placeholder="请输入飞书群 ID">
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Enabled</label>
+                        <label>是否启用</label>
                         <select id="task-enabled">
-                            <option value="1">Yes</option>
-                            <option value="0">No</option>
+                            <option value="1">启用</option>
+                            <option value="0">禁用</option>
                         </select>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" id="cancel-task-modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save</button>
+                    <button type="button" class="btn btn-secondary" id="cancel-task-modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
                 </div>
             </form>
         </div>

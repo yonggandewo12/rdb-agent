@@ -16,4 +16,11 @@ public interface FeishuMessageService {
      * @param content 回复内容
      */
     void replyGroupMessage(String chatId, String messageId, String content);
+    
+    /**
+     * 通过link_token获取chat_id
+     * @param linkToken 飞书link_token
+     * @return chat_id
+     */
+    String getChatIdByLinkToken(String linkToken);
 }

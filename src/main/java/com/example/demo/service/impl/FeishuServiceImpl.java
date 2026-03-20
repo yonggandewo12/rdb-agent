@@ -102,24 +102,40 @@ public class FeishuServiceImpl implements FeishuService {
                 return;
             }
             
-            logger.info("Using Redis datasource: groupId={}, redis={}:{}", 
-                    datasource.getGroupId(), datasource.getRedisHost(), datasource.getRedisPort());
+            logger.info("Using Redis datasource: redis={}:{}", 
+                    datasource.getRedisHost(), datasource.getRedisPort());
             
-            // 1. 调用大模型分析用户查询，生成Redis操作指令
-            String operationJson = llmService.analyzeQuery(cleanContent);
-            if (!StringUtils.hasText(operationJson)) {
+            // 1. 先尝试调用大模型分析，判断是不是Redis问题
+            String llmResponse = llmService.analyzeQuery(cleanContent);
+            if (!StringUtils.hasText(llmResponse)) {
                 sendReply(chatType, chatId, openId, messageId, CommonConstant.ErrorMessage.LLM_CALL_FAILED);
                 return;
             }
             
-            // 2. 使用动态数据源执行Redis操作
-            Object result = llmService.executeRedisOperation(operationJson, datasource.getGroupId(), dynamicRedisService);
+            // 2. 判断是JSON格式还是直接回答
+            String trimmedResponse = llmResponse.trim();
+            boolean isJson = trimmedResponse.startsWith("{") && trimmedResponse.endsWith("}");
             
-            // 3. 生成自然语言回答
-            String response = llmService.generateResponse(result, cleanContent);
+            String finalResponse;
+            if (isJson) {
+                // 是JSON，执行Redis操作
+                try {
+                    Object result = llmService.executeRedisOperation(llmResponse, datasource, dynamicRedisService);
+                    finalResponse = llmService.generateResponse(result, cleanContent);
+                } catch (Exception e) {
+                    logger.error("Failed to execute Redis operation", e);
+                    finalResponse = "操作执行失败：" + e.getMessage();
+                }
+            } else {
+                // 不是JSON，调用directAnswer获取更准确的回答
+                finalResponse = llmService.directAnswer(cleanContent);
+                if (!StringUtils.hasText(finalResponse)) {
+                    finalResponse = llmResponse; // 如果directAnswer返回空，就用原来的回答
+                }
+            }
             
-            // 4. 回复消息到对应的群组
-            sendReply(chatType, chatId, openId, messageId, response);
+            // 3. 回复消息到对应的群组
+            sendReply(chatType, chatId, openId, messageId, finalResponse);
             
         } catch (JsonProcessingException e) {
             logger.error("Failed to parse message content: {}", content, e);

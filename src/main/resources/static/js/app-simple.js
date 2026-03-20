@@ -18,6 +18,11 @@ function initTabs() {
     document.getElementById('tab-tasks').addEventListener('click', () => switchTab('tasks'));
 }
 
+function getDatasourceName(groupId) {
+    const datasource = datasources.find(ds => ds.groupId === groupId);
+    return datasource ? datasource.groupName : '未匹配数据源';
+}
+
 function initModals() {
     document.getElementById('btn-add-datasource').addEventListener('click', () => openDatasourceModal());
     document.getElementById('btn-add-task').addEventListener('click', () => openTaskModal());
@@ -49,10 +54,10 @@ function switchTab(tab) {
 async function apiGet(endpoint) {
     try {
         const res = await fetch(`${API_BASE}${endpoint}`);
-        if (!res.ok) throw new Error('Request failed');
+        if (!res.ok) throw new Error('请求失败');
         return await res.json();
     } catch (e) {
-        console.error('API Error:', e);
+        console.error('接口请求异常:', e);
         return [];
     }
 }
@@ -64,10 +69,10 @@ async function apiPost(endpoint, data) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error('Request failed');
+        if (!res.ok) throw new Error('请求失败');
         return res;
     } catch (e) {
-        console.error('API Error:', e);
+        console.error('接口请求异常:', e);
         throw e;
     }
 }
@@ -79,10 +84,10 @@ async function apiPut(endpoint, data) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (!res.ok) throw new Error('Request failed');
+        if (!res.ok) throw new Error('请求失败');
         return res;
     } catch (e) {
-        console.error('API Error:', e);
+        console.error('接口请求异常:', e);
         throw e;
     }
 }
@@ -90,10 +95,10 @@ async function apiPut(endpoint, data) {
 async function apiDelete(endpoint) {
     try {
         const res = await fetch(`${API_BASE}${endpoint}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Request failed');
+        if (!res.ok) throw new Error('请求失败');
         return res;
     } catch (e) {
-        console.error('API Error:', e);
+        console.error('接口请求异常:', e);
         throw e;
     }
 }
@@ -103,22 +108,21 @@ async function loadDatasources() {
     datasources = await apiGet('/datasources');
     
     if (datasources.length === 0) {
-        container.innerHTML = '<div class="empty-state"><p>No datasources yet. Click "Add Datasource" to get started.</p></div>';
+        container.innerHTML = '<div class="empty-state"><p>暂无数据源，请点击“新增数据源”开始配置。</p></div>';
         return;
     }
     
-    let html = '<table><thead><tr><th>Group ID</th><th>Chat ID</th><th>Group Name</th><th>Redis Host</th><th>Database</th><th>Actions</th></tr></thead><tbody>';
+    let html = '<table><thead><tr><th>群聊 ID</th><th>数据源名称</th><th>Redis 地址</th><th>数据库</th><th>操作</th></tr></thead><tbody>';
     datasources.forEach(ds => {
         html += `<tr>
-            <td><code>${ds.groupId}</code></td>
             <td><code>${ds.chatId || '-'}</code></td>
             <td>${ds.groupName}</td>
             <td>${ds.redisHost}:${ds.redisPort}</td>
             <td>${ds.redisDatabase}</td>
             <td><div class="actions">
-                <button class="btn btn-success btn-sm" onclick="testDatasource('${ds.groupId}')">Test</button>
-                <button class="btn btn-secondary btn-sm" onclick="editDatasource(${ds.id})">Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteDatasource(${ds.id})">Delete</button>
+                <button class="btn btn-success btn-sm" onclick="testDatasource('${ds.groupId}')">测试</button>
+                <button class="btn btn-secondary btn-sm" onclick="editDatasource(${ds.id})">编辑</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteDatasource(${ds.id})">删除</button>
             </div></td>
         </tr>`;
     });
@@ -132,30 +136,30 @@ async function loadTasks() {
     tasks = await apiGet('/tasks');
     
     if (tasks.length === 0) {
-        container.innerHTML = '<div class="empty-state"><p>No scheduled tasks yet. Click "Add Task" to get started.</p></div>';
+        container.innerHTML = '<div class="empty-state"><p>暂无定时任务，请点击“新增任务”开始配置。</p></div>';
         return;
     }
     
-    let html = '<table><thead><tr><th>Task Name</th><th>Group ID</th><th>Type</th><th>Cron</th><th>Status</th><th>Last Run</th><th>Actions</th></tr></thead><tbody>';
+    let html = '<table><thead><tr><th>任务名称</th><th>数据源</th><th>类型</th><th>Cron</th><th>状态</th><th>上次运行</th><th>操作</th></tr></thead><tbody>';
     tasks.forEach(task => {
-        const typeLabel = {slow_query: 'Slow Query', big_key: 'Big Key', all: 'All'}[task.taskType] || task.taskType;
+        const typeLabel = {slow_query: '慢查询', big_key: '大 Key', all: '全部'}[task.taskType] || task.taskType;
         const statusBadge = task.enabled === 1 
-            ? '<span class="badge badge-success">Enabled</span>' 
-            : '<span class="badge badge-danger">Disabled</span>';
+            ? '<span class="badge badge-success">启用</span>' 
+            : '<span class="badge badge-danger">禁用</span>';
         const lastRun = task.lastRunTime ? new Date(task.lastRunTime).toLocaleString() : '-';
         
         html += `<tr>
             <td><strong>${task.taskName}</strong></td>
-            <td><code>${task.groupId}</code></td>
+            <td>${getDatasourceName(task.groupId)}</td>
             <td>${typeLabel}</td>
             <td><code>${task.cronExpression}</code></td>
             <td>${statusBadge}</td>
             <td>${lastRun}</td>
             <td><div class="actions">
-                <button class="btn btn-success btn-sm" onclick="runTask(${task.id})">Run</button>
-                <button class="btn btn-warning btn-sm" onclick="toggleTask(${task.id}, ${task.enabled === 1 ? 0 : 1})">${task.enabled === 1 ? 'Disable' : 'Enable'}</button>
-                <button class="btn btn-secondary btn-sm" onclick="editTask(${task.id})">Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteTask(${task.id})">Delete</button>
+                <button class="btn btn-success btn-sm" onclick="runTask(${task.id})">执行</button>
+                <button class="btn btn-warning btn-sm" onclick="toggleTask(${task.id}, ${task.enabled === 1 ? 0 : 1})">${task.enabled === 1 ? '禁用' : '启用'}</button>
+                <button class="btn btn-secondary btn-sm" onclick="editTask(${task.id})">编辑</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteTask(${task.id})">删除</button>
             </div></td>
         </tr>`;
     });
@@ -165,20 +169,19 @@ async function loadTasks() {
 
 function updateGroupIdSelect() {
     const select = document.getElementById('task-groupId');
-    select.innerHTML = '<option value="">Select a datasource...</option>';
+    select.innerHTML = '<option value="">请选择数据源...</option>';
     datasources.forEach(ds => {
         const chatInfo = ds.chatId ? ` / ${ds.chatId}` : '';
-        select.innerHTML += `<option value="${ds.groupId}">${ds.groupName} (${ds.groupId}${chatInfo})</option>`;
+        select.innerHTML += `<option value="${ds.groupId}">${ds.groupName}${chatInfo}</option>`;
     });
 }
 
 function openDatasourceModal(datasource = null) {
     editingDatasourceId = datasource ? datasource.id : null;
-    document.getElementById('datasource-modal-title').textContent = datasource ? 'Edit Datasource' : 'Add Datasource';
+    document.getElementById('datasource-modal-title').textContent = datasource ? '编辑数据源' : '新增数据源';
     
     if (datasource) {
         document.getElementById('datasource-id').value = datasource.id;
-        document.getElementById('datasource-groupId').value = datasource.groupId;
         document.getElementById('datasource-chatId').value = datasource.chatId || '';
         document.getElementById('datasource-groupName').value = datasource.groupName;
         document.getElementById('datasource-redisHost').value = datasource.redisHost;
@@ -204,7 +207,7 @@ function closeDatasourceModal() {
 
 function openTaskModal(task = null) {
     editingTaskId = task ? task.id : null;
-    document.getElementById('task-modal-title').textContent = task ? 'Edit Task' : 'Add Task';
+    document.getElementById('task-modal-title').textContent = task ? '编辑任务' : '新增任务';
     updateGroupIdSelect();
     
     if (task) {
@@ -240,7 +243,6 @@ async function handleDatasourceSubmit(e) {
     e.preventDefault();
     
     const data = {
-        groupId: document.getElementById('datasource-groupId').value,
         chatId: document.getElementById('datasource-chatId').value,
         groupName: document.getElementById('datasource-groupName').value,
         redisHost: document.getElementById('datasource-redisHost').value,
@@ -253,15 +255,15 @@ async function handleDatasourceSubmit(e) {
     try {
         if (editingDatasourceId) {
             await apiPut(`/datasources/${editingDatasourceId}`, data);
-            alert('Datasource updated successfully!');
+            alert('数据源更新成功！');
         } else {
             await apiPost('/datasources', data);
-            alert('Datasource created successfully!');
+            alert('数据源创建成功！');
         }
         closeDatasourceModal();
         loadDatasources();
     } catch (e) {
-        alert('Operation failed!');
+        alert('操作失败！');
     }
 }
 
@@ -283,15 +285,15 @@ async function handleTaskSubmit(e) {
     try {
         if (editingTaskId) {
             await apiPut(`/tasks/${editingTaskId}`, data);
-            alert('Task updated successfully!');
+            alert('任务更新成功！');
         } else {
             await apiPost('/tasks', data);
-            alert('Task created successfully!');
+            alert('任务创建成功！');
         }
         closeTaskModal();
         loadTasks();
     } catch (e) {
-        alert('Operation failed!');
+        alert('操作失败！');
     }
 }
 
@@ -308,28 +310,28 @@ function editTask(id) {
 async function testDatasource(groupId) {
     try {
         await apiPost(`/datasources/${groupId}/test`);
-        alert('Connection successful!');
+        alert('连接成功！');
     } catch (e) {
-        alert('Connection failed!');
+        alert('连接失败！');
     }
 }
 
 async function deleteDatasource(id) {
-    if (!confirm('Are you sure you want to delete this datasource?')) return;
+    if (!confirm('确认删除该数据源吗？')) return;
     try {
         await apiDelete(`/datasources/${id}`);
         loadDatasources();
     } catch (e) {
-        alert('Delete failed!');
+        alert('删除失败！');
     }
 }
 
 async function runTask(id) {
     try {
         await apiPost(`/tasks/${id}/run`);
-        alert('Task triggered!');
+        alert('任务已触发！');
     } catch (e) {
-        alert('Trigger failed!');
+        alert('触发失败！');
     }
 }
 
@@ -338,16 +340,16 @@ async function toggleTask(id, enabled) {
         await apiPost(`/tasks/${id}/toggle?enabled=${enabled}`);
         loadTasks();
     } catch (e) {
-        alert('Toggle failed!');
+        alert('状态切换失败！');
     }
 }
 
 async function deleteTask(id) {
-    if (!confirm('Are you sure you want to delete this task?')) return;
+    if (!confirm('确认删除该任务吗？')) return;
     try {
         await apiDelete(`/tasks/${id}`);
         loadTasks();
     } catch (e) {
-        alert('Delete failed!');
+        alert('删除失败！');
     }
 }

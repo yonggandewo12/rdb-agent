@@ -63,7 +63,7 @@ public class RedisMonitorJob implements Job {
             
             Map<String, Object> reportData = new HashMap<>();
             reportData.put("taskName", task.getTaskName());
-            reportData.put("groupId", task.getGroupId());
+            reportData.put("datasourceName", datasource.getGroupName());
             reportData.put("redisHost", datasource.getRedisHost() + ":" + datasource.getRedisPort());
             reportData.put("slowQueryThreshold", task.getSlowQueryThreshold());
             reportData.put("bigKeyMemoryThreshold", task.getBigKeyMemoryThreshold());
