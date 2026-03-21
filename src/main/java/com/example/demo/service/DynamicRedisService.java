@@ -2,9 +2,11 @@ package com.example.demo.service;
 
 import com.example.demo.config.DynamicRedisSourceManager;
 import com.example.demo.entity.RedisDatasource;
+import org.springframework.data.redis.connection.DataType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -76,27 +78,39 @@ public class DynamicRedisService {
     }
 
     public Object hget(RedisDatasource datasource, String key, String hashKey) {
-        return getRedisTemplate(datasource).opsForHash().get(key, hashKey);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateHashOperation(redisTemplate, key, null, "读取哈希字段");
+        return redisTemplate.opsForHash().get(key, hashKey);
     }
 
     public Object hget(String groupId, String key, String hashKey) {
-        return getRedisTemplate(groupId).opsForHash().get(key, hashKey);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateHashOperation(redisTemplate, key, null, "读取哈希字段");
+        return redisTemplate.opsForHash().get(key, hashKey);
     }
 
     public void hset(RedisDatasource datasource, String key, String hashKey, Object value) {
-        getRedisTemplate(datasource).opsForHash().put(key, hashKey, value);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateHashOperation(redisTemplate, key, new Object[]{hashKey}, "写入哈希字段");
+        redisTemplate.opsForHash().put(key, hashKey, value);
     }
 
     public void hset(String groupId, String key, String hashKey, Object value) {
-        getRedisTemplate(groupId).opsForHash().put(key, hashKey, value);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateHashOperation(redisTemplate, key, new Object[]{hashKey}, "写入哈希字段");
+        redisTemplate.opsForHash().put(key, hashKey, value);
     }
 
     public Map<Object, Object> hgetAll(RedisDatasource datasource, String key) {
-        return getRedisTemplate(datasource).opsForHash().entries(key);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateHashOperation(redisTemplate, key, null, "读取哈希全部字段");
+        return redisTemplate.opsForHash().entries(key);
     }
 
     public Map<Object, Object> hgetAll(String groupId, String key) {
-        return getRedisTemplate(groupId).opsForHash().entries(key);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateHashOperation(redisTemplate, key, null, "读取哈希全部字段");
+        return redisTemplate.opsForHash().entries(key);
     }
 
     public List<Object> hmget(String groupId, String key, List<String> hashKeys) {
@@ -108,35 +122,51 @@ public class DynamicRedisService {
     }
 
     public Long hdelete(RedisDatasource datasource, String key, Object... hashKeys) {
-        return getRedisTemplate(datasource).opsForHash().delete(key, hashKeys);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateHashOperation(redisTemplate, key, hashKeys, "删除哈希字段");
+        return redisTemplate.opsForHash().delete(key, hashKeys);
     }
 
     public Long hdelete(String groupId, String key, Object... hashKeys) {
-        return getRedisTemplate(groupId).opsForHash().delete(key, hashKeys);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateHashOperation(redisTemplate, key, hashKeys, "删除哈希字段");
+        return redisTemplate.opsForHash().delete(key, hashKeys);
     }
 
     public List<String> lrange(RedisDatasource datasource, String key, long start, long end) {
-        return getRedisTemplate(datasource).opsForList().range(key, start, end);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateListOperation(redisTemplate, key, null, "查询列表元素");
+        return redisTemplate.opsForList().range(key, start, end);
     }
 
     public List<String> lrange(String groupId, String key, long start, long end) {
-        return getRedisTemplate(groupId).opsForList().range(key, start, end);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateListOperation(redisTemplate, key, null, "查询列表元素");
+        return redisTemplate.opsForList().range(key, start, end);
     }
 
     public Long lpush(RedisDatasource datasource, String key, String value) {
-        return getRedisTemplate(datasource).opsForList().leftPush(key, value);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateListOperation(redisTemplate, key, new String[]{value}, "向列表左侧插入元素");
+        return redisTemplate.opsForList().leftPush(key, value);
     }
 
     public Long lpush(String groupId, String key, String value) {
-        return getRedisTemplate(groupId).opsForList().leftPush(key, value);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateListOperation(redisTemplate, key, new String[]{value}, "向列表左侧插入元素");
+        return redisTemplate.opsForList().leftPush(key, value);
     }
 
     public Long rpush(RedisDatasource datasource, String key, String value) {
-        return getRedisTemplate(datasource).opsForList().rightPush(key, value);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateListOperation(redisTemplate, key, new String[]{value}, "向列表右侧插入元素");
+        return redisTemplate.opsForList().rightPush(key, value);
     }
 
     public Long rpush(String groupId, String key, String value) {
-        return getRedisTemplate(groupId).opsForList().rightPush(key, value);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateListOperation(redisTemplate, key, new String[]{value}, "向列表右侧插入元素");
+        return redisTemplate.opsForList().rightPush(key, value);
     }
 
     public String lpop(String groupId, String key) {
@@ -148,39 +178,57 @@ public class DynamicRedisService {
     }
 
     public Long llen(String groupId, String key) {
-        return getRedisTemplate(groupId).opsForList().size(key);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateListOperation(redisTemplate, key, null, "查询列表长度");
+        return redisTemplate.opsForList().size(key);
     }
 
     public Long llen(RedisDatasource datasource, String key) {
-        return getRedisTemplate(datasource).opsForList().size(key);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateListOperation(redisTemplate, key, null, "查询列表长度");
+        return redisTemplate.opsForList().size(key);
     }
 
     public Set<String> smembers(RedisDatasource datasource, String key) {
-        return getRedisTemplate(datasource).opsForSet().members(key);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateSetOperation(redisTemplate, key, null, "查询集合成员");
+        return redisTemplate.opsForSet().members(key);
     }
 
     public Set<String> smembers(String groupId, String key) {
-        return getRedisTemplate(groupId).opsForSet().members(key);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateSetOperation(redisTemplate, key, null, "查询集合成员");
+        return redisTemplate.opsForSet().members(key);
     }
 
     public Long sadd(RedisDatasource datasource, String key, String... values) {
-        return getRedisTemplate(datasource).opsForSet().add(key, values);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateSetOperation(redisTemplate, key, values, "添加集合元素");
+        return redisTemplate.opsForSet().add(key, values);
     }
 
     public Long sadd(String groupId, String key, String... values) {
-        return getRedisTemplate(groupId).opsForSet().add(key, values);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateSetOperation(redisTemplate, key, values, "添加集合元素");
+        return redisTemplate.opsForSet().add(key, values);
     }
 
     public Long srem(RedisDatasource datasource, String key, String... values) {
-        return getRedisTemplate(datasource).opsForSet().remove(key, values);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateSetOperation(redisTemplate, key, values, "移除集合元素");
+        return redisTemplate.opsForSet().remove(key, values);
     }
 
     public Long srem(String groupId, String key, String... values) {
-        return getRedisTemplate(groupId).opsForSet().remove(key, values);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateSetOperation(redisTemplate, key, values, "移除集合元素");
+        return redisTemplate.opsForSet().remove(key, values);
     }
 
     public Boolean sismember(String groupId, String key, String value) {
-        return getRedisTemplate(groupId).opsForSet().isMember(key, value);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateSetOperation(redisTemplate, key, new String[]{value}, "检查集合成员");
+        return redisTemplate.opsForSet().isMember(key, value);
     }
 
     public Long ttl(RedisDatasource datasource, String key) {
@@ -197,5 +245,63 @@ public class DynamicRedisService {
 
     public RedisDatasource getDatasourceByChatId(String chatId) {
         return redisDatasourceService.getByChatId(chatId);
+    }
+
+    private void validateSetOperation(StringRedisTemplate redisTemplate, String key,
+                                      String[] values, String operationName) {
+        validateKey(key);
+        validateStringValues(values, "集合操作");
+        validateDataType(redisTemplate, key, DataType.SET, operationName);
+    }
+
+    private void validateListOperation(StringRedisTemplate redisTemplate, String key,
+                                       String[] values, String operationName) {
+        validateKey(key);
+        validateStringValues(values, "列表操作");
+        validateDataType(redisTemplate, key, DataType.LIST, operationName);
+    }
+
+    private void validateHashOperation(StringRedisTemplate redisTemplate, String key,
+                                       Object[] hashKeys, String operationName) {
+        validateKey(key);
+        if (hashKeys != null && hashKeys.length == 0) {
+            throw new IllegalArgumentException("哈希操作缺少字段信息");
+        }
+        if (hashKeys != null) {
+            for (Object hashKey : hashKeys) {
+                if (hashKey == null || !StringUtils.hasText(String.valueOf(hashKey))) {
+                    throw new IllegalArgumentException("哈希操作包含空字段，无法执行");
+                }
+            }
+        }
+        validateDataType(redisTemplate, key, DataType.HASH, operationName);
+    }
+
+    private void validateKey(String key) {
+        if (!StringUtils.hasText(key)) {
+            throw new IllegalArgumentException("Redis key不能为空");
+        }
+    }
+
+    private void validateStringValues(String[] values, String operationType) {
+        if (values != null && values.length == 0) {
+            throw new IllegalArgumentException(operationType + "缺少元素值");
+        }
+        if (values != null) {
+            for (String value : values) {
+                if (!StringUtils.hasText(value)) {
+                    throw new IllegalArgumentException(operationType + "包含空元素，无法执行");
+                }
+            }
+        }
+    }
+
+    private void validateDataType(StringRedisTemplate redisTemplate, String key,
+                                  DataType expectedType, String operationName) {
+        DataType dataType = redisTemplate.type(key);
+        if (dataType != null && dataType != DataType.NONE && dataType != expectedType) {
+            throw new IllegalArgumentException(String.format("key %s 当前类型为 %s，不能执行%s", key,
+                    dataType.code(), operationName));
+        }
     }
 }

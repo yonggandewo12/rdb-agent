@@ -110,6 +110,8 @@ flowchart LR
 - List 写入时统一使用 `values` 数组格式
 - `set` 支持带过期时间的写入
 - Redis 操作执行结果会再格式化成自然语言回复
+- 当目标 key 已存在且类型不匹配时，系统会返回明确错误，例如 `key test 当前类型为 string，不能执行添加集合元素`
+- 当前动态 Redis 路径已对 `hash`、`list`、`set` 三类操作增加类型检查，避免直接暴露 Redis `WRONGTYPE` 原始异常
 
 对应代码：
 - `src/main/java/com/example/demo/service/impl/LlmServiceImpl.java`
