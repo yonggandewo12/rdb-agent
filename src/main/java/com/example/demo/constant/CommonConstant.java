@@ -52,7 +52,9 @@ public class CommonConstant {
          * 消息发送地址
          */
         public static final String MESSAGE_SEND_URL = "https://open.feishu.cn/open-apis/im/v1/messages";
-        
+
+        public static final String CHAT_LIST_URL = "https://open.feishu.cn/open-apis/im/v1/chats";
+
         /**
          * 消息回复地址前缀
          */

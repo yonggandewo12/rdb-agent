@@ -10,7 +10,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -70,57 +73,95 @@ public class FeishuMessageServiceImpl implements FeishuMessageService {
     }
 
     @Override
-    public String getChatIdByLinkToken(String linkToken) {
-        if (!StringUtils.hasText(linkToken)) {
-            throw new IllegalArgumentException("Link Token不能为空");
-        }
-        
+    public List<Map<String, Object>> listVisibleChats(String keyword) {
         try {
             String accessToken = getTenantAccessToken();
-            
-            Map<String, String> reqBody = new HashMap<>(2);
-            reqBody.put("link_token", linkToken);
-            
-            Request request = new Request.Builder()
-                    .url("https://open.feishu.cn/open-apis/im/v1/chats/by_link_token")
-                    .addHeader("Authorization", CommonConstant.AUTH_HEADER_PREFIX + accessToken)
-                    .addHeader("Content-Type", CommonConstant.CONTENT_TYPE_JSON)
-                    .post(RequestBody.create(OBJECT_MAPPER.writeValueAsString(reqBody), 
-                            MediaType.parse(CommonConstant.CONTENT_TYPE_JSON)))
-                    .build();
-            
-            try (Response response = OK_HTTP_CLIENT.newCall(request).execute()) {
-                if (!response.isSuccessful() || response.body() == null) {
-                    logger.error("Get chat id failed, code: {}", response.code());
-                    throw new RuntimeException("获取ChatID失败，HTTP错误码：" + response.code());
+            List<Map<String, Object>> chatList = new ArrayList<>();
+            String normalizedKeyword = StringUtils.hasText(keyword)
+                    ? keyword.trim().toLowerCase(Locale.ROOT)
+                    : null;
+            String pageToken = null;
+            boolean hasMore;
+
+            do {
+                HttpUrl.Builder urlBuilder = HttpUrl.parse(CommonConstant.Feishu.CHAT_LIST_URL)
+                        .newBuilder()
+                        .addQueryParameter("page_size", "100");
+                if (StringUtils.hasText(pageToken)) {
+                    urlBuilder.addQueryParameter("page_token", pageToken);
                 }
-                String responseBody = response.body().string();
-                Map<String, Object> respMap = OBJECT_MAPPER.readValue(responseBody, Map.class);
-                
-                Integer code = (Integer) respMap.get("code");
-                if (code != null && code != 0) {
-                    String msg = (String) respMap.get("msg");
-                    logger.error("Get chat id failed, code: {}, msg: {}", code, msg);
-                    throw new RuntimeException("获取ChatID失败：" + msg);
+
+                Request request = new Request.Builder()
+                        .url(urlBuilder.build())
+                        .addHeader("Authorization", CommonConstant.AUTH_HEADER_PREFIX + accessToken)
+                        .get()
+                        .build();
+
+                try (Response response = OK_HTTP_CLIENT.newCall(request).execute()) {
+                    if (!response.isSuccessful() || response.body() == null) {
+                        logger.error("List visible chats failed, code: {}", response.code());
+                        throw new RuntimeException("获取群聊列表失败，HTTP错误码：" + response.code());
+                    }
+
+                    Map<String, Object> respMap = OBJECT_MAPPER.readValue(response.body().string(), Map.class);
+                    Integer code = (Integer) respMap.get("code");
+                    if (code != null && code != 0) {
+                        String msg = (String) respMap.get("msg");
+                        logger.error("List visible chats failed, code: {}, msg: {}", code, msg);
+                        throw new RuntimeException("获取群聊列表失败：" + msg);
+                    }
+
+                    Map<String, Object> data = castToMap(respMap.get("data"));
+                    List<Map<String, Object>> items = castToList(data == null ? null : data.get("items"));
+                    if (items != null) {
+                        for (Map<String, Object> item : items) {
+                            String chatId = toText(item.get("chat_id"));
+                            String name = toText(item.get("name"));
+                            if (!StringUtils.hasText(chatId)) {
+                                continue;
+                            }
+                            if (StringUtils.hasText(normalizedKeyword)
+                                    && !matchesKeyword(chatId, name, normalizedKeyword)) {
+                                continue;
+                            }
+
+                            Map<String, Object> chatInfo = new HashMap<>(4);
+                            chatInfo.put("chat_id", chatId);
+                            chatInfo.put("name", name);
+                            chatList.add(chatInfo);
+                        }
+                    }
+
+                    hasMore = Boolean.TRUE.equals(data == null ? null : data.get("has_more"));
+                    pageToken = toText(data == null ? null : data.get("page_token"));
                 }
-                
-                Map<String, Object> data = (Map<String, Object>) respMap.get("data");
-                if (data == null) {
-                    throw new RuntimeException("获取ChatID失败：返回数据为空");
-                }
-                
-                Map<String, Object> chat = (Map<String, Object>) data.get("chat");
-                if (chat == null) {
-                    throw new RuntimeException("获取ChatID失败：未找到群聊信息");
-                }
-                
-                return (String) chat.get("chat_id");
-            }
-            
+
+            } while (hasMore && StringUtils.hasText(pageToken));
+
+            return chatList;
         } catch (Exception e) {
-            logger.error("Failed to get chat id by link token: {}", linkToken, e);
-            throw new RuntimeException("获取ChatID失败：" + e.getMessage(), e);
+            logger.error("Failed to list visible Feishu chats, keyword: {}", keyword, e);
+            throw new RuntimeException("获取群聊列表失败：" + e.getMessage(), e);
         }
+    }
+
+    private boolean matchesKeyword(String chatId, String name, String keyword) {
+        return StringUtils.hasText(chatId) && chatId.toLowerCase(Locale.ROOT).contains(keyword)
+                || StringUtils.hasText(name) && name.toLowerCase(Locale.ROOT).contains(keyword);
+    }
+
+    private String toText(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> castToMap(Object value) {
+        return value instanceof Map ? (Map<String, Object>) value : null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> castToList(Object value) {
+        return value instanceof List ? (List<Map<String, Object>>) value : null;
     }
     
     /**

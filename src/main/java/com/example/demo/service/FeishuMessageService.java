@@ -1,6 +1,10 @@
 package com.example.demo.service;
 
+import java.util.List;
+import java.util.Map;
+
 public interface FeishuMessageService {
+    List<Map<String, Object>> listVisibleChats(String keyword);
     
     /**
      * 发送文本消息给用户
@@ -17,10 +21,4 @@ public interface FeishuMessageService {
      */
     void replyGroupMessage(String chatId, String messageId, String content);
     
-    /**
-     * 通过link_token获取chat_id
-     * @param linkToken 飞书link_token
-     * @return chat_id
-     */
-    String getChatIdByLinkToken(String linkToken);
 }

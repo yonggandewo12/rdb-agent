@@ -137,28 +137,28 @@ public class FeishuController {
         }
     }
     
-    /**
-     * 通过link_token获取chat_id
-     * @param params 请求参数，包含link_token
-     * @return chat_id
-     */
-    @PostMapping("/get-chat-id")
-    public ResponseEntity<Map<String, Object>> getChatIdByLinkToken(@RequestBody Map<String, String> params) {
+    @GetMapping("/chats")
+    public ResponseEntity<Map<String, Object>> listVisibleChats(@RequestParam(value = "keyword", required = false) String keyword) {
         Map<String, Object> result = new HashMap<>();
         try {
-            String linkToken = params.get("link_token");
-            if (!StringUtils.hasText(linkToken)) {
-                result.put("message", "Link Token不能为空");
-                return ResponseEntity.badRequest().body(result);
-            }
-            
-            String chatId = feishuMessageService.getChatIdByLinkToken(linkToken);
-            result.put("chat_id", chatId);
+            result.put("chats", feishuMessageService.listVisibleChats(keyword));
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            logger.error("Failed to get chat id by link token", e);
+            logger.error("Failed to list visible feishu chats", e);
             result.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(result);
         }
+    }
+
+    @PostMapping("/get-chat-id")
+    public ResponseEntity<Map<String, Object>> getChatIdByLinkToken(@RequestBody(required = false) Map<String, String> params) {
+        Map<String, Object> result = new HashMap<>();
+        if (params != null && StringUtils.hasText(params.get("link_token"))) {
+            result.put("link_token", params.get("link_token"));
+        }
+        result.put("message", "飞书官方不支持通过link_token反查chat_id，请改用 /feishu-chat.html 页面或 GET /api/feishu/chats 查询机器人可见群聊列表");
+        result.put("page", "/feishu-chat.html");
+        result.put("fallback_api", "/api/feishu/chats");
+        return ResponseEntity.badRequest().body(result);
     }
 }
