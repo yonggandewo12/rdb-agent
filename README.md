@@ -1,245 +1,554 @@
-# RDB-Agent (Redis Agent)
+# RDB-Agent
 
-## 📝 项目简介
+## 项目概述
 
-RDB-Agent 是一款基于飞书机器人的**智能Redis查询代理工具**，用户可以通过自然语言对话的方式直接操作Redis数据库，无需记忆复杂的Redis命令，降低Redis使用门槛，提升开发和运维效率。
+RDB-Agent 是一个面向飞书场景的 Redis 智能代理系统。它把飞书机器人、动态 Redis 数据源、LLM 能力、定时巡检任务和管理后台组合在一起，让运维或研发人员可以直接在飞书里查询 Redis、执行常见操作、接收巡检报告，并在 Web 后台管理数据源和定时任务。
 
-## ✨ 功能特性
+当前项目不仅支持聊天式 Redis 操作，还支持多群聊映射、多 Redis 实例切换、慢查询与大 Key 巡检、飞书云文档报告生成、群通知发送，以及部署脚本化发布。
 
-- 🎯 **自然语言交互**：支持通过飞书机器人用自然语言查询和操作Redis
-- 🔁 **群聊动态路由**：每个飞书群聊绑定独立Redis数据源，消息自动路由到对应Redis实例
-- 🔧 **全命令支持**：覆盖String/Hash/List/Set等常用Redis数据结构操作
-- 🤖 **自动回复**：查询结果自动格式化为易读的自然语言回复到飞书
-- 💬 **多场景适配**：同时支持飞书群聊@机器人和私聊两种使用方式
-- 🔒 **安全可靠**：
-  - 全局飞书请求token验证，防止伪造非法请求
-  - 内置参数校验、异常处理、操作日志全链路可追溯
-  - 敏感操作自动识别，支持操作审计
-- 🚀 **开箱即用**：标准Spring Boot架构，最小配置即可快速部署上线
-- 📦 **部署便捷**：
-  - 提供assembly打包脚本
-  - 启停脚本支持自动重启、无缝升级，启动前自动停止旧实例
-  - 优化内存参数，适配低配服务器
-  - 生产环境友好
+## 架构图
 
-## 🛠️ 技术栈
+### 总体架构
 
-| 技术/组件 | 版本 | 说明 |
-|---------|-----|-----|
-| Spring Boot | 2.7.18 | 核心开发框架 |
-| Spring Data Redis | 2.7.18 | Redis操作客户端 |
-| 飞书开放平台API | - | 飞书消息发送/接收 |
-| OpenAI API兼容 | - | 大模型自然语言处理 |
-| OkHttp3 | 4.12.0 | 外部API调用客户端 |
-| Lombok | 1.18.30 | 简化代码 |
-| JDK | 1.8+ | 运行环境要求 |
+```mermaid
+flowchart LR
+    User[Feishu User or Group] --> Feishu[Feishu Platform]
+    Feishu --> Webhook[FeishuController\n/api/feishu/webhook]
+    Webhook --> Security[token verification\ndecrypt\ndedup]
+    Security --> Service[FeishuServiceImpl]
+    Service --> Router[chat_id routing]
+    Router --> DS[(MySQL\nt_redis_datasource)]
+    Router --> Dynamic[DynamicRedisService]
+    Service --> LLM[LlmServiceImpl\nOpenAI-compatible API]
+    LLM --> Dynamic
+    Dynamic --> Redis[(Target Redis)]
+    Service --> Message[FeishuMessageServiceImpl]
+    Message --> Feishu
 
-## 🏗️ 架构设计
-
-### 分层架构
-```
-com.example.demo
-├── controller/       # 控制层：接收飞书事件回调
-│   └── FeishuController.java
-├── service/          # 服务层：核心业务逻辑
-│   ├── FeishuService.java          # 飞书事件处理
-│   ├── FeishuMessageService.java   # 飞书消息发送
-│   ├── LlmService.java             # 大模型API调用
-│   ├── RedisService.java           # Redis操作封装
-│   └── impl/                       # 服务实现类
-├── dto/              # 数据传输层：飞书事件请求DTO
-│   └── feishu/
-├── constant/         # 常量层：通用常量、错误信息等
-│   └── CommonConstant.java
-└── DemoApplication.java  # 启动类
+    Admin[Admin UI\nindex.html] --> AdminApi[AdminController\n/api/admin/*]
+    AdminApi --> DS
+    AdminApi --> Tasks[(MySQL\nt_scheduled_task)]
 ```
 
-### 工作流程
-```
-用户@飞书机器人提问 → 飞书平台回调事件 → FeishuController接收请求
-       ↓
-解析消息内容 → 调用LLM大模型生成结构化Redis操作指令
-       ↓
-执行Redis操作 → 将结果格式化为自然语言回答 → 回复到飞书对话界面
-```
+### 定时巡检与报告链路
 
-## 🚀 快速部署
-
-### 环境要求
-- JDK 1.8 或更高版本
-- Redis 5.0+ 服务
-- 飞书企业应用权限
-- 支持OpenAI协议的大模型API服务
-
-### 部署步骤
-
-#### 1. 拉取代码
-```bash
-git clone git@github.com:yonggandewo12/rdb-agent.git
-cd rdb-agent
+```mermaid
+flowchart LR
+    Quartz[Quartz Scheduler] --> TaskSvc[ScheduledTaskServiceImpl]
+    TaskSvc --> Job[RedisMonitorJob]
+    Job --> TaskTable[(t_scheduled_task)]
+    Job --> DsTable[(t_redis_datasource)]
+    Job --> Redis[(Target Redis)]
+    Redis --> Slow[Slow Query Detection]
+    Redis --> BigKey[Big Key Detection]
+    Slow --> Report[FeishuReportService]
+    BigKey --> Report
+    Report --> Advice[LLM Analysis Advice]
+    Report --> Doc[Feishu Cloud Doc]
+    Doc --> Notify[Feishu Group Notification]
 ```
 
-#### 2. 修改配置文件
-编辑 `src/main/resources/application.yml`，配置以下参数：
+## 核心能力
+
+### 1. 飞书机器人消息接入
+
+- 接收飞书事件订阅回调，入口为 `POST /api/feishu/webhook`
+- 同时支持明文事件和 `encrypt` 加密事件自动解密
+- 对 `url_verification` 和普通事件统一校验 `verification-token`
+- 对消息事件进行去重，避免飞书重复投递导致重复执行
+- 支持群聊和私聊两种回复模式
+
+对应代码：
+- `src/main/java/com/example/demo/controller/FeishuController.java`
+- `src/main/java/com/example/demo/service/FeishuEventDedupService.java`
+- `src/main/java/com/example/demo/utils/FeishuCryptoUtil.java`
+- `src/main/java/com/example/demo/dto/feishu/`
+
+### 2. 飞书对话驱动 Redis 操作
+
+机器人收到消息后，会执行以下链路：
+
+1. 解析飞书消息体中的文本内容
+2. 去除群聊中的 @机器人 前缀
+3. 根据 `chat_id` 找到当前群聊绑定的 Redis 数据源
+4. 把自然语言问题发送给 LLM
+5. 如果 LLM 返回 Redis 操作 JSON，则执行对应 Redis 命令
+6. 如果 LLM 返回普通文本，则直接作为问答结果回复
+7. 将结果回发到飞书群聊或私聊
+
+对应代码：
+- `src/main/java/com/example/demo/service/impl/FeishuServiceImpl.java`
+- `src/main/java/com/example/demo/service/impl/LlmServiceImpl.java`
+- `src/main/java/com/example/demo/service/DynamicRedisService.java`
+
+### 3. 多 Redis 数据源与群聊映射
+
+项目不是只连一个 Redis，而是通过数据库维护多套 Redis 配置，并把飞书群聊和 Redis 数据源做映射：
+
+- 每个数据源有独立的 `group_id`
+- 每个飞书群聊可绑定一个 `chat_id`
+- 收到群消息后，根据 `chat_id` 自动找到对应 Redis
+- `DynamicRedisSourceManager` 会为每个数据源动态创建 `StringRedisTemplate`
+- 支持新增、编辑、删除和刷新缓存后的重新加载
+
+对应代码：
+- `src/main/java/com/example/demo/config/DynamicRedisSourceManager.java`
+- `src/main/java/com/example/demo/service/impl/RedisDatasourceServiceImpl.java`
+- `src/main/java/com/example/demo/entity/RedisDatasource.java`
+- `src/main/resources/db/schema.sql`
+
+### 4. 支持的 Redis 操作类型
+
+当前 LLM 指令解析和执行层支持的能力主要包括：
+
+- String: `get` `set` `delete` `exists` `ttl`
+- Hash: `hget` `hgetall` `hset` `hdelete`
+- List: `lrange` `lpush` `rpush` `llen`
+- Set: `smembers` `sadd` `srem`
+
+说明：
+- List 写入时统一使用 `values` 数组格式
+- `set` 支持带过期时间的写入
+- Redis 操作执行结果会再格式化成自然语言回复
+
+对应代码：
+- `src/main/java/com/example/demo/service/impl/LlmServiceImpl.java`
+- `src/main/java/com/example/demo/service/RedisService.java`
+- `src/main/java/com/example/demo/service/DynamicRedisService.java`
+
+### 5. 管理后台
+
+项目自带一个静态管理后台，默认首页为 `/`，用于管理 Redis 数据源、查询飞书群聊以及维护定时任务。
+
+功能包括：
+- Redis 数据源列表查询
+- 新增 / 编辑 / 删除数据源
+- 测试 Redis 连接
+- 飞书群聊关键字查询
+- 一键复制 `chat_id`
+- 将 `chat_id` 快捷带入数据源或定时任务表单
+- 定时任务列表查询
+- 新增 / 编辑 / 删除巡检任务
+- 启用 / 禁用任务
+- 手动立即执行任务
+
+页面与接口：
+- 页面：`src/main/resources/static/index.html`
+- 前端脚本：`src/main/resources/static/js/app-simple.js`
+- 后端接口：`src/main/java/com/example/demo/controller/AdminController.java`
+
+主页面当前包含三个标签页：
+- 数据源管理
+- 飞书群聊
+- 定时任务管理
+
+### 6. 飞书 Chat ID 查询工具
+
+项目还提供一个独立工具页，用于查询当前机器人可见的飞书群聊列表，并复制对应 `chat_id`，方便后台录入数据源时绑定飞书群。
+
+功能包括：
+- 按群聊关键字筛选机器人可见群聊
+- 调用后端接口查询群聊列表
+- 页面展示群名称与 `chat_id` 并支持一键复制
+- 明确提示机器人必须已加入目标群
+
+页面与接口：
+- 页面：`/feishu-chat.html`
+- 页面文件：`src/main/resources/static/feishu-chat.html`
+- 前端脚本：`src/main/resources/static/js/chat-id-tool.js`
+- 后端接口：`GET /api/feishu/chats`
+
+### 7. Redis 巡检与飞书报告
+
+项目包含基于 Quartz 的定时巡检能力，当前实现了两类检测：
+
+- 慢查询巡检
+- 大 Key 巡检
+
+巡检流程如下：
+
+1. Quartz 根据 Cron 触发任务
+2. 按任务绑定的 `group_id` 找到 Redis 数据源
+3. 使用 Jedis 直连 Redis 执行检测
+4. 汇总慢查询和大 Key 结果
+5. 调用 LLM 生成优化建议
+6. 创建飞书云文档并写入报告内容
+7. 把文档链接推送到飞书群聊
+
+对应代码：
+- `src/main/java/com/example/demo/service/impl/ScheduledTaskServiceImpl.java`
+- `src/main/java/com/example/demo/job/RedisMonitorJob.java`
+- `src/main/java/com/example/demo/job/FeishuReportService.java`
+- `src/main/java/com/example/demo/entity/ScheduledTask.java`
+
+### 8. LLM 能力使用方式
+
+项目当前把 LLM 用在三个地方：
+
+- 把自然语言解析成结构化 Redis 操作 JSON
+- 对非 Redis 问题做直接自然语言回答
+- 对巡检报告生成优化建议
+
+当前接入方式为 OpenAI 兼容接口，请求中会发送：
+- `model`
+- `messages`
+- `temperature`
+- `Authorization: Bearer <api-key>`
+
+对应代码：
+- `src/main/java/com/example/demo/service/LlmService.java`
+- `src/main/java/com/example/demo/service/impl/LlmServiceImpl.java`
+
+## 系统架构
+
+### 后端模块
+
+```text
+src/main/java/com/example/demo
+├── config/        动态 Redis 数据源管理
+├── constant/      业务常量
+├── controller/    飞书回调接口、管理后台接口
+├── dto/           飞书事件 DTO
+├── entity/        Redis 数据源、定时任务实体
+├── exception/     异常定义
+├── job/           Redis 巡检与飞书报告任务
+├── mapper/        MyBatis-Plus Mapper
+├── service/       服务接口与基础服务
+├── service/impl/  核心业务实现
+└── utils/         飞书加解密等工具
+```
+
+### 前端模块
+
+```text
+src/main/resources/static
+├── index.html         管理后台首页
+├── feishu-chat.html   Chat ID 查询工具页
+├── css/               样式文件
+└── js/                页面交互脚本
+```
+
+### 数据存储
+
+项目当前使用两类存储：
+
+- MySQL：保存 Redis 数据源配置、定时任务配置
+- Redis：作为被操作和被巡检的目标实例
+
+数据库结构定义见：
+- `src/main/resources/db/schema.sql`
+
+核心业务表：
+- `t_redis_datasource`
+- `t_scheduled_task`
+
+说明：
+- `schema.sql` 中也包含 Quartz 表结构
+- 但当前 `application.yml` 配置的是 `spring.quartz.job-store-type: memory`
+- 也就是说当前运行时使用的是内存型 Quartz JobStore，不是持久化 Quartz 表
+
+## 主要接口
+
+### 飞书相关接口
+
+- `POST /api/feishu/webhook`
+  - 飞书事件订阅回调入口
+  - 支持 `url_verification`
+  - 支持明文和加密事件
+  - 对所有请求进行 token 校验
+
+- `GET /api/feishu/chats`
+  - 查询当前机器人可见的飞书群聊列表
+  - 支持可选参数 `keyword` 按群名或 `chat_id` 过滤
+
+- `POST /api/feishu/get-chat-id`
+  - 保留兼容接口
+  - 仅返回错误提示，说明飞书官方不支持通过 `link_token` 反查 `chat_id`
+
+### 管理后台接口
+
+- `GET /api/admin/datasources`：查询数据源列表
+- `POST /api/admin/datasources`：新增数据源
+- `PUT /api/admin/datasources/{id}`：更新数据源
+- `DELETE /api/admin/datasources/{id}`：删除数据源
+- `POST /api/admin/datasources/{groupId}/test`：测试连接
+- `GET /api/admin/tasks`：查询任务列表
+- `POST /api/admin/tasks`：新增任务
+- `PUT /api/admin/tasks/{id}`：更新任务
+- `DELETE /api/admin/tasks/{id}`：删除任务
+- `POST /api/admin/tasks/{id}/toggle?enabled=0|1`：启用或禁用任务
+- `POST /api/admin/tasks/{id}/run`：立即执行一次任务
+
+## 运行流程
+
+### 飞书对话链路
+
+```text
+飞书消息
+  -> FeishuController 接收回调
+  -> 校验 token / 解密消息 / 去重
+  -> FeishuServiceImpl 解析文本
+  -> 根据 chat_id 获取 Redis 数据源
+  -> LlmServiceImpl 判断是 Redis 操作还是普通问答
+  -> DynamicRedisService 执行 Redis 命令
+  -> FeishuMessageServiceImpl 回发飞书消息
+```
+
+### 定时巡检链路
+
+```text
+Quartz 触发任务
+  -> ScheduledTaskServiceImpl 调度 RedisMonitorJob
+  -> RedisMonitorJob 连接目标 Redis
+  -> 检测慢查询 / 大 Key
+  -> FeishuReportService 生成报告
+  -> LLM 输出优化建议
+  -> 创建飞书云文档并推送群通知
+```
+
+## 配置说明
+
+主配置文件：`src/main/resources/application.yml`
+
+### 服务端口
+
 ```yaml
-# 服务端口
 server:
   port: 8999
-
-# Redis配置
-spring:
-  redis:
-    host: 你的Redis地址
-    port: 你的Redis端口
-    password: 你的Redis密码
-    database: 0
-
-# 飞书应用配置
-feishu:
-  app-id: 飞书应用APP_ID
-  app-secret: 飞书应用APP_SECRET
-  verification-token: 事件订阅校验TOKEN
-  encrypt-key: 加密密钥（可选）
-
-# 大模型配置
-llm:
-  api-key: 大模型API密钥
-  base-url: 大模型API地址（默认OpenAI格式）
-  model: 模型名称（如gpt-3.5-turbo）
-
-### 飞书群聊映射
-
-> ✅ 每个飞书群聊都需要在管理后台绑定一个 Redis 数据源，机器人才能识别并执行命令。
-
-1. 访问管理后台 `http://服务器IP:8999/`
-2. 在 “Redis Datasources” 中点击 **+ Add Datasource**
-3. 填写以下关键信息：
-   - `Group ID`: 自定义分组标识（与任务、动态数据源关联）
-   - `Feishu Chat ID`: 飞书群聊 ID，可通过[飞书 API Explorer](https://open.feishu.cn/api-explorer/api/im/v1/chats)或机器人日志获取
-   - Redis 连接信息（host、port、password、database 等）
-4. 群聊发送命令时，机器人会根据 `chat_id` 自动匹配对应的 Redis 实例执行操作，并把结果回复到同一个群聊
 ```
 
-#### 3. 项目打包
+### MySQL 配置
+
+用于存放数据源和定时任务配置。
+
+```yaml
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/rdb_agent?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: dev
+    password: 1q2w3e4r
+```
+
+### 默认 Redis 配置
+
+该配置提供默认 Redis 连接；群聊动态 Redis 数据源则来自数据库配置。
+
+```yaml
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    password: test
+    database: 0
+    timeout: 3000
+```
+
+### Quartz 配置
+
+```yaml
+spring:
+  quartz:
+    job-store-type: memory
+```
+
+### 飞书配置
+
+```yaml
+feishu:
+  app-id: your_app_id
+  app-secret: your_app_secret
+  verification-token: your_verification_token
+  encrypt-key: your_encrypt_key
+```
+
+说明：
+- `verification-token` 用于校验飞书请求合法性
+- `encrypt-key` 用于解密飞书 `encrypt` 模式事件
+- 未配置 `encrypt-key` 时，无法处理加密事件
+
+### LLM 配置
+
+```yaml
+llm:
+  api-key: your_llm_api_key
+  base-url: https://api.openai.com/v1/chat/completions
+  model: gpt-3.5-turbo
+```
+
+## 部署方式
+
+### 本地构建
+
 ```bash
 mvn clean package -DskipTests
 ```
 
-打包后产物在 `target/rdb-agent-0.0.1-SNAPSHOT-distribution.tar.gz`
+构建完成后会生成：
+- `target/rdb-agent-0.0.1-SNAPSHOT.jar`
+- `target/rdb-agent-0.0.1-SNAPSHOT-distribution.tar.gz`
+- `target/rdb-agent-0.0.1-SNAPSHOT-distribution.zip`
 
-#### 4. 服务启动
+### 发布包结构
+
+发布包通过 Maven Assembly 生成，定义文件为：
+- `src/main/assembly/assembly.xml`
+
+解压后的目录结构如下：
+
+```text
+rdb-agent-0.0.1-SNAPSHOT/
+├── bin/
+│   ├── start.sh
+│   └── stop.sh
+├── config/
+│   ├── application.yml
+│   └── mapper/*.xml
+├── lib/
+│   ├── rdb-agent-0.0.1-SNAPSHOT.jar
+│   └── runtime dependencies
+└── logs/
+```
+
+### 启停脚本
+
+脚本位置：
+- `src/main/scripts/start.sh`
+- `src/main/scripts/stop.sh`
+
+特点：
+- `start.sh` 启动前会自动执行 `stop.sh`
+- 默认 JVM 参数为 `-Xms256m -Xmx512m -XX:+UseG1GC`
+- 进程 PID 会写入隐藏文件，便于停服和重启
+- 日志输出到 `logs/rdb-agent.out`
+
+启动示例：
+
 ```bash
-# 解压部署包
-tar -zxvf rdb-agent-0.0.1-SNAPSHOT-distribution.tar.gz
-cd rdb-agent-0.0.1-SNAPSHOT
-
-# 修改配置文件（首次部署需要）
-vim config/application.yml
-
-# 启动服务（启动前会自动停止已运行的旧实例
 ./bin/start.sh
+```
 
-# 停止服务
+停止示例：
+
+```bash
 ./bin/stop.sh
 ```
 
-#### 5. 飞书后台配置
-1. 登录飞书开放平台创建企业应用
-2. 开启事件订阅，回调地址填写：`http://你的公网IP:8999/api/feishu/webhook`
-3. 订阅事件：`接收消息v2` (im.message.receive_v1)
-4. 申请权限：`获取用户发给机器人的单聊消息`、`获取群组中@机器人的消息`、`以应用身份发送消息`
-5. 发布版本后即可使用
+## 使用指南
 
-## 🎮 使用说明
+### 1. 配置飞书机器人
 
-### 支持的操作示例
+需要在飞书开放平台完成：
+- 创建企业应用
+- 配置事件订阅回调地址：`http://<host>:8999/api/feishu/webhook`
+- 订阅 `im.message.receive_v1`
+- 配置 `verification-token`
+- 如使用加密模式，还需配置 `encrypt-key`
+- 开通消息发送相关权限
 
-| 飞书提问示例 | 说明 |
-|-----------|-----|
-| `@Redis助手 查询key为user:1的value` | 查询String类型值 |
-| `@Redis助手 查询哈希user:info的name字段` | 查询Hash结构字段 |
-| `@Redis助手 查询列表user:list的前10个元素` | 查询List范围 |
-| `@Redis助手 设置key name为张三，过期时间60秒` | 设置值并指定过期时间 |
-| `@Redis助手 查看key name是否存在` | 检查键是否存在 |
-| `@Redis助手 查看key name的剩余过期时间` | 查询剩余TTL |
-| `@Redis助手 删除key name` | 删除指定键 |
-| `@Redis助手 查询集合tags的所有成员` | 查询Set集合成员 |
-| `@Redis助手 查询列表user:list的长度` | 查询List长度 |
-| `@Redis助手 查询哈希user:info的所有字段` | 获取Hash全部内容 |
+### 2. 配置 Redis 数据源
 
-### 注意事项
-- 群聊使用时需要@机器人，私聊直接发送消息即可
-- 复杂查询建议明确描述需求，避免歧义
-- 敏感操作（如删除、修改）建议先在测试环境验证
-- **安全配置**：`feishu.verification-token` 必须配置为飞书后台填写的token，所有请求会自动校验token，防止伪造
-- **LLM配置**：需确保服务器可以正常访问配置的大模型API地址，如使用OpenAI需要配置代理
-- **兼容性**：已兼容飞书所有官方事件字段（如mentions、update_time等），无需担心字段缺失导致的解析错误
+打开管理后台 `/` 后：
 
-## 🔧 开发调试
+1. 新增 Redis 数据源
+2. 录入飞书群聊 `chat_id`
+3. 录入 Redis 地址、端口、密码、数据库编号
+4. 点击测试连接
+5. 保存配置
 
-### 本地运行
+完成后，该群聊中的机器人消息就会自动路由到对应 Redis。
+
+### 3. 配置巡检任务
+
+在管理后台的定时任务页中：
+
+1. 选择数据源
+2. 配置任务类型：慢查询 / 大 Key / 全部
+3. 配置 Cron 表达式
+4. 配置阈值
+5. 配置飞书通知群 ID
+6. 保存并启用任务
+
+### 4. 查询 Chat ID
+
+如果还不知道飞书群聊的 `chat_id`，推荐直接在主页面 `/` 的“飞书群聊”标签页中查询。
+
+你也可以访问独立工具页：
+- `/feishu-chat.html`
+
+输入群聊名称关键字后，系统会查询当前机器人可见的群聊列表，并展示可复制的 `chat_id`。
+
+注意：
+- 机器人必须已经在目标群中
+- 飞书官方不支持通过 `link_token` 直接反查 `chat_id`
+
+## 示例场景
+
+### 飞书提问示例
+
+- `@机器人 查询 key user:1 的值`
+- `@机器人 查看 hash user:info 的 name 字段`
+- `@机器人 设置 key name 为张三，过期时间 60 秒`
+- `@机器人 查询列表 order:list 前 10 个元素`
+- `@机器人 删除 key temp:data`
+- `@机器人 查看集合 tags 的所有成员`
+
+### 巡检报告示例
+
+定时任务执行后，系统会：
+- 统计慢查询列表
+- 检测大 Key
+- 生成 LLM 分析建议
+- 写入飞书云文档
+- 把文档链接发送到指定飞书群
+
+## 当前实现边界
+
+以下内容是当前代码状态下需要明确说明的点：
+
+- Quartz 表结构已提供，但默认配置仍是内存模式，不是数据库持久化调度
+- 动态 Redis 路由主要依赖 `chat_id -> RedisDatasource` 映射
+- 飞书 Chat ID 工具当前基于“机器人可见群聊列表”实现，不支持 `link_token -> chat_id` 反查
+- LLM Redis 指令集覆盖常用操作，但不是完整 Redis 命令全集
+- 管理后台当前是原生静态页面，不是完整前后端分离 SPA
+- 巡检中大 Key 检测当前使用 `keys("*")` 遍历全量 key，适合中小规模实例，不适合超大生产实例直接无约束使用
+
+## 关键文件索引
+
+- 启动入口：`src/main/java/com/example/demo/DemoApplication.java`
+- 飞书回调：`src/main/java/com/example/demo/controller/FeishuController.java`
+- 管理接口：`src/main/java/com/example/demo/controller/AdminController.java`
+- 飞书消息处理：`src/main/java/com/example/demo/service/impl/FeishuServiceImpl.java`
+- 飞书消息发送：`src/main/java/com/example/demo/service/impl/FeishuMessageServiceImpl.java`
+- LLM 处理：`src/main/java/com/example/demo/service/impl/LlmServiceImpl.java`
+- 动态 Redis 管理：`src/main/java/com/example/demo/config/DynamicRedisSourceManager.java`
+- 数据源服务：`src/main/java/com/example/demo/service/impl/RedisDatasourceServiceImpl.java`
+- 定时任务服务：`src/main/java/com/example/demo/service/impl/ScheduledTaskServiceImpl.java`
+- Redis 巡检任务：`src/main/java/com/example/demo/job/RedisMonitorJob.java`
+- 飞书报告生成：`src/main/java/com/example/demo/job/FeishuReportService.java`
+- 数据库结构：`src/main/resources/db/schema.sql`
+- 管理后台：`src/main/resources/static/index.html`
+- Chat ID 工具：`src/main/resources/static/feishu-chat.html`
+- 部署脚本：`src/main/scripts/start.sh` `src/main/scripts/stop.sh`
+- 发布打包：`src/main/assembly/assembly.xml`
+
+## 开发与测试
+
+运行测试：
+
 ```bash
-# 直接启动
+mvn test
+```
+
+本地启动：
+
+```bash
 mvn spring-boot:run
 ```
 
-### 远程调试
-默认关闭远程调试端口，如需要调试可在启动时添加JVM参数：
+如需远程调试，可自行在启动前注入 `JAVA_OPTS`，例如：
+
 ```bash
-export JAVA_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9999"
+export JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9999"
 ./bin/start.sh
 ```
-IDE配置远程调试连接 `服务器IP:9999` 即可断点调试
-
-### 单元测试
-```bash
-# 运行全部测试
-mvn test
-
-# 运行指定测试类
-mvn test -Dtest=RedisServiceTest
-```
-
-### 目录说明
-```
-rdb-agent-<版本号>/
-├── bin/          # 启停脚本目录
-│   ├── start.sh
-│   └── stop.sh
-├── lib/          # 依赖jar包目录
-├── config/       # 配置文件目录
-│   └── application.yml
-└── logs/         # 日志目录
-```
-
-## 📝 更新日志
-
-### v1.1.0 (2026-03-19)
-- 🚀 **新增功能**：Redis定时监控系统，支持慢查询和大Key检测
-- 🎨 **管理后台**：React管理界面，支持Redis数据源和定时任务配置
-- 💾 **MySQL存储**：使用MySQL存储数据源配置和定时任务信息
-- ⏱️ **Quartz调度**：集成Quartz定时任务框架，支持Cron表达式
-- 📊 **智能分析**：集成LLM自动分析监控结果并生成优化建议
-- 📄 **飞书云文档**：自动生成飞书云文档报告并发送群通知
-- 🔄 **动态数据源**：支持多个Redis实例，按group_id动态切换
-- 🧠 **群聊映射**：基于chat_id自动匹配飞书群聊与Redis数据源，消息实时路由
-
-### v1.0.1 (2026-03-15)
-- 🔒 **安全修复**：增加全局飞书请求token验证，所有事件（包括URL验证和消息事件）都校验token，防止伪造请求
-- 🛠️ **脚本优化**：优化start.sh脚本，启动前自动执行stop.sh停止旧实例，实现无忧启停；移除默认调试端口，优化内存参数为256M/512M适配服务器
-- 🐛 **兼容性修复**：所有DTO类添加`@JsonIgnoreProperties(ignoreUnknown = true)`注解，兼容飞书新增字段（如mentions等），避免反序列化失败
-- ✅ **测试修复**：修复所有单元测试用例，构建成功率100%
-
-### v1.0.0 (2026-03-14)
-- 🎉 初始版本发布
-- 支持自然语言转Redis命令
-- 支持飞书群聊和私聊消息处理
-- 基础的Redis操作封装和LLM集成
-
-## 📄 许可证
-
-本项目采用 MIT 许可证，详见 LICENSE 文件。
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request 贡献代码！
