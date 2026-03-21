@@ -400,6 +400,16 @@ llm:
 
 ## 部署方式
 
+### 部署检查清单
+
+- 确认 `application.yml` 中的 `feishu.doc-domain` 已配置为真实飞书文档浏览器域名
+- 确认飞书应用已开通文档相关权限：`docx:document`、`docx:document:create`、`docx:document:write_only`
+- 确认飞书机器人已在目标通知群内，且 `notify_chat_id` 配置正确
+- 确认 Redis 数据源映射和定时任务使用的 `group_id` 一致
+- 手动触发一次任务后，检查服务日志中是否出现 `报告推送完成，文档链接:`
+- 校验推送出的链接格式是否为 `https://{feishu.doc-domain}/docx/{document_id}`
+- 若链接可打开但要求登录，说明链接本身有效，需继续检查飞书侧外部访问策略
+
 ### 本地构建
 
 ```bash
