@@ -15,6 +15,8 @@ import java.util.*;
 @Service
 public class FeishuReportService {
 
+    private static final String FEISHU_DOC_APPLINK = "https://applink.feishu.cn/client/docx/open?document_id=%s";
+
     @Value("${feishu.app-id}")
     private String appId;
     
@@ -36,22 +38,21 @@ public class FeishuReportService {
         try {
             String tenantToken = getTenantAccessToken();
             
-            // 生成报告内容
             String reportContent = generateReportContent(reportData);
-            
-            // 创建飞书云文档
-            String docId = createFeishuDoc(tenantToken, reportData);
-            
-            // 写入报告内容到云文档
-            writeContentToDoc(tenantToken, docId, reportContent);
-            
-            // 设置文档公开访问
-            String docUrl = setDocPublicAccess(tenantToken, docId);
-            
-            // 发送通知到群聊
-            sendGroupMessage(tenantToken, chatId, docUrl, reportData);
-            
-            log.info("报告生成并发送成功，文档链接: {}", docUrl);
+            String docUrl = null;
+            String docFailureReason = null;
+
+            try {
+                String docId = createFeishuDoc(tenantToken, reportData);
+                writeContentToDoc(tenantToken, docId, reportContent);
+                docUrl = setDocPublicAccess(tenantToken, docId);
+            } catch (Exception e) {
+                docFailureReason = e.getMessage();
+                log.warn("飞书云文档生成失败，将退化为群消息摘要推送", e);
+            }
+
+            sendGroupMessage(tenantToken, chatId, docUrl, reportData, reportContent, docFailureReason);
+            log.info("报告推送完成，文档链接: {}", docUrl);
             
         } catch (Exception e) {
             log.error("生成报告失败", e);
@@ -213,7 +214,8 @@ public class FeishuReportService {
         
         try (Response response = CLIENT.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                log.warn("写入文档内容失败: {}", response.body().string());
+                String responseBody = response.body() != null ? response.body().string() : "";
+                throw new RuntimeException("写入文档内容失败: " + responseBody);
             }
         }
     }
@@ -229,7 +231,9 @@ public class FeishuReportService {
     
     private Map<String, Object> createTextRun(String text) {
         Map<String, Object> textRun = new HashMap<>();
-        textRun.put("content", text);
+        Map<String, Object> content = new HashMap<>();
+        content.put("content", text);
+        textRun.put("text_run", content);
         return textRun;
     }
     
@@ -247,12 +251,16 @@ public class FeishuReportService {
                 .build();
         
         try (Response response = CLIENT.newCall(request).execute()) {
-            // 返回文档链接
-            return String.format("https://xxx.feishu.cn/docx/%s", docId);
+            String responseBody = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) {
+                throw new RuntimeException("设置文档权限失败: " + responseBody);
+            }
+            return String.format(FEISHU_DOC_APPLINK, docId);
         }
     }
     
-    private void sendGroupMessage(String token, String chatId, String docUrl, Map<String, Object> reportData) throws Exception {
+    private void sendGroupMessage(String token, String chatId, String docUrl, Map<String, Object> reportData,
+                                  String reportContent, String docFailureReason) throws Exception {
         String url = "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id";
         
         String taskName = (String) reportData.get("taskName");
@@ -261,21 +269,14 @@ public class FeishuReportService {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> bigKeys = (List<Map<String, Object>>) reportData.get("bigKeys");
         
-        String summary = String.format("【Redis监控报告】\n" +
-                "📋 任务: %s\n" +
-                "🐌 慢查询: %d条\n" +
-                "🔴 大Key: %d个\n" +
-                "📎 报告链接: %s", 
-                taskName,
-                slowQueries != null ? slowQueries.size() : 0,
-                bigKeys != null ? bigKeys.size() : 0,
-                docUrl);
-        
-        String json = String.format(
-                "{\"receive_id\":\"%s\",\"msg_type\":\"text\",\"content\":{\"text\":\"%s\"}}",
-                chatId, summary.replace("\n", "\\n").replace("\"", "\\\""));
-        
-        RequestBody body = RequestBody.create(json, JSON);
+        String summary = buildSummaryMessage(taskName, slowQueries, bigKeys, docUrl, reportContent, docFailureReason);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("receive_id", chatId);
+        payload.put("msg_type", "text");
+        payload.put("content", com.alibaba.fastjson.JSONObject.toJSONString(Collections.singletonMap("text", summary)));
+
+        RequestBody body = RequestBody.create(com.alibaba.fastjson.JSONObject.toJSONString(payload), JSON);
         Request request = new Request.Builder()
                 .url(url)
                 .post(body)
@@ -285,8 +286,36 @@ public class FeishuReportService {
         
         try (Response response = CLIENT.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                log.warn("发送群消息失败: {}", response.body().string());
+                String responseBody = response.body() != null ? response.body().string() : "";
+                log.warn("发送群消息失败: {}", responseBody);
             }
         }
+    }
+
+    private String buildSummaryMessage(String taskName, List<Map<String, Object>> slowQueries,
+                                       List<Map<String, Object>> bigKeys, String docUrl,
+                                       String reportContent, String docFailureReason) {
+        StringBuilder summary = new StringBuilder();
+        summary.append("【Redis监控报告】\n")
+                .append("📋 任务: ").append(taskName).append("\n")
+                .append("🐌 慢查询: ").append(slowQueries != null ? slowQueries.size() : 0).append("条\n")
+                .append("🔴 大Key: ").append(bigKeys != null ? bigKeys.size() : 0).append("个");
+
+        if (docUrl != null) {
+            summary.append("\n📎 报告文档: ").append(docUrl);
+            return summary.toString();
+        }
+
+        summary.append("\n⚠️ 云文档创建失败，已降级为摘要推送");
+        if (docFailureReason != null && !docFailureReason.isEmpty()) {
+            summary.append("\n原因: ").append(docFailureReason);
+        }
+
+        String condensed = reportContent.replace("```", "").trim();
+        if (condensed.length() > 900) {
+            condensed = condensed.substring(0, 900) + "\n...";
+        }
+        summary.append("\n\n").append(condensed);
+        return summary.toString();
     }
 }

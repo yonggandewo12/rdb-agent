@@ -57,6 +57,9 @@ public class LlmServiceImpl implements LlmService {
             "示例5：用户问\"向列表user:list右侧插入元素hello\"，返回{\"operation\":\"rpush\",\"key\":\"user:list\",\"values\":[\"hello\"]}\n" +
             "示例6：用户问\"向列表user:list左侧插入元素world\"，返回{\"operation\":\"lpush\",\"key\":\"user:list\",\"values\":[\"world\"]}\n" +
             "示例7：用户问\"向列表user:list右侧插入元素a、b、c\"，返回{\"operation\":\"rpush\",\"key\":\"user:list\",\"values\":[\"a\",\"b\",\"c\"]}\n" +
+            "示例8：用户问\"向集合tags添加元素java、redis\"，返回{\"operation\":\"sadd\",\"key\":\"tags\",\"values\":[\"java\",\"redis\"]}\n" +
+            "示例9：用户问\"从集合tags移除元素redis\"，返回{\"operation\":\"srem\",\"key\":\"tags\",\"values\":[\"redis\"]}\n" +
+            "示例10：用户问\"删除哈希user:info的name字段\"，返回{\"operation\":\"hdelete\",\"key\":\"user:info\",\"fields\":[\"name\"]}\n" +
             "用户问题：%s";
     
     @Value("${llm.api-key}")
@@ -131,7 +134,7 @@ public class LlmServiceImpl implements LlmService {
                     dynamicRedisService.hset(datasource, key, hField, hValue);
                     return "哈希字段设置成功";
                 case CommonConstant.Llm.OP_HDEL:
-                    String[] delFields = opNode.get("fields").asText().split(",");
+                    String[] delFields = parseFields(opNode);
                     Long delCount = dynamicRedisService.hdelete(datasource, key, (Object[]) delFields);
                     return "成功删除哈希字段" + delCount + "个";
                 case CommonConstant.Llm.OP_LPUSH:
@@ -149,11 +152,11 @@ public class LlmServiceImpl implements LlmService {
                     }
                     return "列表右侧插入成功，当前列表长度：" + rpushCount;
                 case CommonConstant.Llm.OP_SADD:
-                    String[] sValues = opNode.get("values").asText().split(",");
+                    String[] sValues = parseValues(opNode);
                     Long saddCount = dynamicRedisService.sadd(datasource, key, sValues);
                     return "集合添加成功，添加元素数量：" + saddCount;
                 case CommonConstant.Llm.OP_SREM:
-                    String[] sremValues = opNode.get("values").asText().split(",");
+                    String[] sremValues = parseValues(opNode);
                     Long sremCount = dynamicRedisService.srem(datasource, key, sremValues);
                     return "集合移除成功，移除元素数量：" + sremCount;
                 default:
@@ -179,6 +182,24 @@ public class LlmServiceImpl implements LlmService {
         }
         if (opNode.has("value")) {
             return new String[]{opNode.get("value").asText()};
+        }
+        return new String[0];
+    }
+
+    private String[] parseFields(JsonNode opNode) {
+        if (opNode.has("fields") && opNode.get("fields").isArray()) {
+            JsonNode fieldsNode = opNode.get("fields");
+            String[] fields = new String[fieldsNode.size()];
+            for (int i = 0; i < fieldsNode.size(); i++) {
+                fields[i] = fieldsNode.get(i).asText();
+            }
+            return fields;
+        }
+        if (opNode.has("fields")) {
+            return opNode.get("fields").asText().split(",");
+        }
+        if (opNode.has("field")) {
+            return new String[]{opNode.get("field").asText()};
         }
         return new String[0];
     }
@@ -346,23 +367,29 @@ public class LlmServiceImpl implements LlmService {
                     redisService.hset(key, hField, hValue);
                     return "哈希字段设置成功";
                 case CommonConstant.Llm.OP_HDEL:
-                    String[] delFields = opNode.get("fields").asText().split(",");
+                    String[] delFields = parseFields(opNode);
                     Long delCount = redisService.hdelete(key, (Object[]) delFields);
                     return "成功删除哈希字段" + delCount + "个";
                 case CommonConstant.Llm.OP_LPUSH:
-                    String lValue = opNode.get("value").asText();
-                    Long lpushCount = redisService.lpush(key, lValue);
+                    String[] lValues = parseValues(opNode);
+                    Long lpushCount = 0L;
+                    for (String lValue : lValues) {
+                        lpushCount = redisService.lpush(key, lValue);
+                    }
                     return "列表左侧插入成功，当前列表长度：" + lpushCount;
                 case CommonConstant.Llm.OP_RPUSH:
-                    String rValue = opNode.get("value").asText();
-                    Long rpushCount = redisService.rpush(key, rValue);
+                    String[] rValues = parseValues(opNode);
+                    Long rpushCount = 0L;
+                    for (String rValue : rValues) {
+                        rpushCount = redisService.rpush(key, rValue);
+                    }
                     return "列表右侧插入成功，当前列表长度：" + rpushCount;
                 case CommonConstant.Llm.OP_SADD:
-                    String[] sValues = opNode.get("values").asText().split(",");
+                    String[] sValues = parseValues(opNode);
                     Long saddCount = redisService.sadd(key, sValues);
                     return "集合添加成功，添加元素数量：" + saddCount;
                 case CommonConstant.Llm.OP_SREM:
-                    String[] sremValues = opNode.get("values").asText().split(",");
+                    String[] sremValues = parseValues(opNode);
                     Long sremCount = redisService.srem(key, sremValues);
                     return "集合移除成功，移除元素数量：" + sremCount;
                 default:
