@@ -13,6 +13,7 @@
                 <h1>RDB-Agent 管理后台</h1>
                 <div class="nav-tabs">
                     <button class="nav-tab active" id="tab-datasources">数据源管理</button>
+                    <button class="nav-tab" id="tab-chats">飞书群聊</button>
                     <button class="nav-tab" id="tab-tasks">定时任务管理</button>
                 </div>
             </div>
@@ -25,6 +26,34 @@
                         <button class="btn btn-primary" id="btn-add-datasource">+ 新增数据源</button>
                     </div>
                     <div id="datasources-table-container">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+            <div id="content-chats" class="content-section" style="display:none;">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2>飞书群聊查询</h2>
+                            <p style="margin-top: 8px; color: #9aa4c7; font-size: 14px;">查询当前机器人可见群聊，快速复制 Chat ID，或直接带入数据源和定时任务表单。</p>
+                        </div>
+                        <button class="btn btn-secondary" id="btn-refresh-chats">刷新列表</button>
+                    </div>
+                    <div class="alert alert-warning" style="margin-bottom: 20px;">
+                        飞书官方不支持通过 Link Token 反查 Chat ID。请先确保机器人已经在目标群中，再通过本页查询。
+                    </div>
+                    <div class="form-row" style="align-items: end; margin-bottom: 20px;">
+                        <div class="form-group">
+                            <label>群聊关键字</label>
+                            <input type="text" id="chat-keyword" placeholder="输入群名称或 Chat ID 关键字">
+                        </div>
+                        <div class="form-group" style="display: flex; gap: 12px;">
+                            <button class="btn btn-primary" id="btn-search-chats" type="button">查询群聊</button>
+                            <button class="btn btn-secondary" id="btn-clear-chat-search" type="button">清空</button>
+                        </div>
+                    </div>
+                    <div id="chats-summary" style="margin-bottom: 16px; color: #9aa4c7; font-size: 14px;"></div>
+                    <div id="chats-table-container">
                         <div class="loading">加载中...</div>
                     </div>
                 </div>
@@ -55,6 +84,17 @@
                     <div class="form-group">
                         <label>飞书群聊 ID *</label>
                         <input type="text" id="datasource-chatId" required placeholder="请输入飞书群聊 ID">
+                        <div class="picker-tools">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-pick-datasource-chat">查询群聊并填入</button>
+                            <span class="picker-tip">从机器人可见群聊中选择并自动填入</span>
+                        </div>
+                        <div id="datasource-chat-picker" class="chat-picker" style="display:none;">
+                            <div class="picker-search">
+                                <input type="text" id="datasource-chat-keyword" placeholder="输入群名称或 Chat ID 关键字">
+                                <button type="button" class="btn btn-primary btn-sm" id="btn-search-datasource-chat">查询</button>
+                            </div>
+                            <div id="datasource-chat-results" class="picker-results"></div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>分组名称 *</label>
@@ -142,6 +182,17 @@
                         <div class="form-group">
                             <label>飞书通知群 ID *</label>
                             <input type="text" id="task-notifyChatId" required placeholder="请输入飞书群 ID">
+                            <div class="picker-tools">
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-pick-task-chat">查询群聊并填入</button>
+                                <span class="picker-tip">从机器人可见群聊中选择通知群</span>
+                            </div>
+                            <div id="task-chat-picker" class="chat-picker" style="display:none;">
+                                <div class="picker-search">
+                                    <input type="text" id="task-chat-keyword" placeholder="输入群名称或 Chat ID 关键字">
+                                    <button type="button" class="btn btn-primary btn-sm" id="btn-search-task-chat">查询</button>
+                                </div>
+                                <div id="task-chat-results" class="picker-results"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="form-group">

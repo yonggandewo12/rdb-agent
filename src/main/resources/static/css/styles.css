@@ -341,3 +341,67 @@ tr:hover td {
 .empty-state p {
     font-size: 16px;
 }
+
+.picker-tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.picker-tip {
+    color: #8f9bbd;
+    font-size: 12px;
+}
+
+.chat-picker {
+    margin-top: 14px;
+    padding: 14px;
+    border: 1px solid #1a1a2e;
+    border-radius: 8px;
+    background: rgba(15, 52, 96, 0.55);
+}
+
+.picker-search {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.picker-search input {
+    flex: 1;
+}
+
+.picker-results {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.picker-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.picker-item-main {
+    min-width: 0;
+}
+
+.picker-item-title {
+    color: #fff;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.picker-item-id {
+    color: #b8c7ff;
+    font-family: monospace;
+    font-size: 12px;
+    word-break: break-all;
+}

@@ -2,6 +2,7 @@ const API_BASE = '/api/admin';
 
 let currentTab = 'datasources';
 let datasources = [];
+let chats = [];
 let tasks = [];
 let editingDatasourceId = null;
 let editingTaskId = null;
@@ -10,11 +11,13 @@ document.addEventListener('DOMContentLoaded', function() {
     initTabs();
     initModals();
     loadDatasources();
+    loadChats();
     loadTasks();
 });
 
 function initTabs() {
     document.getElementById('tab-datasources').addEventListener('click', () => switchTab('datasources'));
+    document.getElementById('tab-chats').addEventListener('click', () => switchTab('chats'));
     document.getElementById('tab-tasks').addEventListener('click', () => switchTab('tasks'));
 }
 
@@ -26,6 +29,34 @@ function getDatasourceName(groupId) {
 function initModals() {
     document.getElementById('btn-add-datasource').addEventListener('click', () => openDatasourceModal());
     document.getElementById('btn-add-task').addEventListener('click', () => openTaskModal());
+    document.getElementById('btn-refresh-chats').addEventListener('click', () => loadChats());
+    document.getElementById('btn-search-chats').addEventListener('click', () => loadChats());
+    document.getElementById('btn-clear-chat-search').addEventListener('click', () => {
+        document.getElementById('chat-keyword').value = '';
+        loadChats();
+    });
+    document.getElementById('chat-keyword').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            loadChats();
+        }
+    });
+    document.getElementById('btn-pick-datasource-chat').addEventListener('click', () => toggleChatPicker('datasource'));
+    document.getElementById('btn-pick-task-chat').addEventListener('click', () => toggleChatPicker('task'));
+    document.getElementById('btn-search-datasource-chat').addEventListener('click', () => searchModalChats('datasource'));
+    document.getElementById('btn-search-task-chat').addEventListener('click', () => searchModalChats('task'));
+    document.getElementById('datasource-chat-keyword').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            searchModalChats('datasource');
+        }
+    });
+    document.getElementById('task-chat-keyword').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            searchModalChats('task');
+        }
+    });
     
     document.getElementById('close-datasource-modal').addEventListener('click', () => closeDatasourceModal());
     document.getElementById('cancel-datasource-modal').addEventListener('click', () => closeDatasourceModal());
@@ -103,6 +134,18 @@ async function apiDelete(endpoint) {
     }
 }
 
+async function feishuGet(endpoint) {
+    try {
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || '请求失败');
+        return data;
+    } catch (e) {
+        console.error('飞书接口请求异常:', e);
+        throw e;
+    }
+}
+
 async function loadDatasources() {
     const container = document.getElementById('datasources-table-container');
     datasources = await apiGet('/datasources');
@@ -167,6 +210,51 @@ async function loadTasks() {
     container.innerHTML = html;
 }
 
+async function loadChats() {
+    const container = document.getElementById('chats-table-container');
+    const summary = document.getElementById('chats-summary');
+    const keyword = document.getElementById('chat-keyword').value.trim();
+    const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : '';
+
+    container.innerHTML = '<div class="loading">加载中...</div>';
+    summary.textContent = '正在同步机器人可见群聊...';
+
+    try {
+        const data = await feishuGet(`/api/feishu/chats${query}`);
+        chats = Array.isArray(data.chats) ? data.chats : [];
+
+        if (chats.length === 0) {
+            summary.textContent = keyword ? `未找到与“${keyword}”匹配的群聊` : '当前没有可见群聊';
+            container.innerHTML = '<div class="empty-state"><p>请确认机器人已经加入目标群，或调整关键字后重试。</p></div>';
+            return;
+        }
+
+        summary.textContent = keyword
+            ? `共找到 ${chats.length} 个与“${keyword}”匹配的群聊`
+            : `当前共找到 ${chats.length} 个机器人可见群聊`;
+
+        let html = '<table><thead><tr><th>群聊名称</th><th>Chat ID</th><th>快捷操作</th></tr></thead><tbody>';
+        chats.forEach(chat => {
+            const name = escapeHtml(chat.name || '未命名群聊');
+            const chatId = escapeHtml(chat.chat_id || chat.chatId || '-');
+            html += `<tr>
+                <td><strong>${name}</strong></td>
+                <td><code>${chatId}</code></td>
+                <td><div class="actions">
+                    <button class="btn btn-secondary btn-sm" onclick="copyChatId('${chatId}')">复制</button>
+                    <button class="btn btn-success btn-sm" onclick="useChatIdForDatasource('${chatId}')">用于数据源</button>
+                    <button class="btn btn-warning btn-sm" onclick="useChatIdForTask('${chatId}')">用于通知群</button>
+                </div></td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    } catch (e) {
+        summary.textContent = '群聊查询失败';
+        container.innerHTML = `<div class="empty-state"><p>${escapeHtml(e.message || '请稍后重试')}</p></div>`;
+    }
+}
+
 function updateGroupIdSelect() {
     const select = document.getElementById('task-groupId');
     select.innerHTML = '<option value="">请选择数据源...</option>';
@@ -174,6 +262,91 @@ function updateGroupIdSelect() {
         const chatInfo = ds.chatId ? ` / ${ds.chatId}` : '';
         select.innerHTML += `<option value="${ds.groupId}">${ds.groupName}${chatInfo}</option>`;
     });
+}
+
+function useChatIdForDatasource(chatId) {
+    switchTab('datasources');
+    openDatasourceModal();
+    document.getElementById('datasource-chatId').value = chatId;
+    document.getElementById('datasource-groupName').focus();
+}
+
+function useChatIdForTask(chatId) {
+    switchTab('tasks');
+    openTaskModal();
+    document.getElementById('task-notifyChatId').value = chatId;
+    document.getElementById('task-taskName').focus();
+}
+
+function copyChatId(chatId) {
+    navigator.clipboard.writeText(chatId).then(() => {
+        alert('Chat ID 已复制');
+    }).catch(() => {
+        alert('复制失败，请手动复制');
+    });
+}
+
+function toggleChatPicker(type) {
+    const picker = document.getElementById(`${type}-chat-picker`);
+    const nextVisible = picker.style.display === 'none' || picker.style.display === '';
+    picker.style.display = nextVisible ? 'block' : 'none';
+    if (nextVisible) {
+        searchModalChats(type);
+    }
+}
+
+async function searchModalChats(type) {
+    const input = document.getElementById(`${type}-chat-keyword`);
+    const resultBox = document.getElementById(`${type}-chat-results`);
+    const keyword = input.value.trim();
+    const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : '';
+
+    resultBox.innerHTML = '<div class="loading" style="padding: 20px;">加载中...</div>';
+
+    try {
+        const data = await feishuGet(`/api/feishu/chats${query}`);
+        const items = Array.isArray(data.chats) ? data.chats : [];
+
+        if (items.length === 0) {
+            resultBox.innerHTML = '<div class="empty-state" style="padding: 20px 10px;"><p>未找到可选群聊</p></div>';
+            return;
+        }
+
+        resultBox.innerHTML = items.map(chat => {
+            const name = escapeHtml(chat.name || '未命名群聊');
+            const chatId = escapeHtml(chat.chat_id || chat.chatId || '');
+            return `<div class="picker-item">
+                <div class="picker-item-main">
+                    <div class="picker-item-title">${name}</div>
+                    <div class="picker-item-id">${chatId}</div>
+                </div>
+                <button type="button" class="btn btn-success btn-sm" onclick="selectModalChat('${type}', '${chatId}')">选择</button>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        resultBox.innerHTML = `<div class="empty-state" style="padding: 20px 10px;"><p>${escapeHtml(e.message || '查询失败')}</p></div>`;
+    }
+}
+
+function selectModalChat(type, chatId) {
+    const target = type === 'datasource' ? 'datasource-chatId' : 'task-notifyChatId';
+    document.getElementById(target).value = chatId;
+    document.getElementById(`${type}-chat-picker`).style.display = 'none';
+}
+
+function resetChatPicker(type) {
+    document.getElementById(`${type}-chat-picker`).style.display = 'none';
+    document.getElementById(`${type}-chat-keyword`).value = '';
+    document.getElementById(`${type}-chat-results`).innerHTML = '';
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function openDatasourceModal(datasource = null) {
@@ -196,6 +369,7 @@ function openDatasourceModal(datasource = null) {
         document.getElementById('datasource-redisPort').value = 6379;
         document.getElementById('datasource-redisDatabase').value = 0;
     }
+    resetChatPicker('datasource');
     
     document.getElementById('datasource-modal').style.display = 'flex';
 }
@@ -230,6 +404,7 @@ function openTaskModal(task = null) {
         document.getElementById('task-bigKeyCountThreshold').value = 5000;
         document.getElementById('task-enabled').value = '1';
     }
+    resetChatPicker('task');
     
     document.getElementById('task-modal').style.display = 'flex';
 }
