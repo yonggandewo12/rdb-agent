@@ -53,7 +53,7 @@ public class LlmServiceImpl implements LlmService {
             "示例2：用户问\"查询哈希key为user:info的name字段\"，返回{\"operation\":\"hget\",\"key\":\"user:info\",\"field\":\"name\"}\n" +
             "示例3：用户问\"设置key为name的值为张三，过期时间60秒\"，返回{\"operation\":\"set\",\"key\":\"name\",\"value\":\"张三\",\"expire\":60}\n" +
             "示例4：用户问\"设置哈希user:info的age字段为25\"，返回{\"operation\":\"hset\",\"key\":\"user:info\",\"field\":\"age\",\"value\":\"25\"}\n" +
-            "注意：如果操作的是 list（如 lpush、rpush），请统一使用 values 字段，格式为字符串数组，不要使用 value 字段。\n" +
+            "注意：如果操作的是 list（如 lpush、rpush）或 set（如 sadd、srem），请统一使用 values 字段，格式为字符串数组，不要使用 value 字段。\n" +
             "示例5：用户问\"向列表user:list右侧插入元素hello\"，返回{\"operation\":\"rpush\",\"key\":\"user:list\",\"values\":[\"hello\"]}\n" +
             "示例6：用户问\"向列表user:list左侧插入元素world\"，返回{\"operation\":\"lpush\",\"key\":\"user:list\",\"values\":[\"world\"]}\n" +
             "示例7：用户问\"向列表user:list右侧插入元素a、b、c\"，返回{\"operation\":\"rpush\",\"key\":\"user:list\",\"values\":[\"a\",\"b\",\"c\"]}\n" +
@@ -63,6 +63,9 @@ public class LlmServiceImpl implements LlmService {
             "示例11：用户问\"返回所有的keys\"，返回{\"operation\":\"keys\",\"pattern\":\"*\"}\n" +
             "示例12：用户问\"查看所有key\"，返回{\"operation\":\"keys\",\"pattern\":\"*\"}\n" +
             "示例13：用户问\"查看以user:开头的所有key\"，返回{\"operation\":\"keys\",\"pattern\":\"user:*\"}\n" +
+            "示例14：用户问\"列出所有keys\"，返回{\"operation\":\"keys\",\"pattern\":\"*\"}\n" +
+            "示例15：用户问\"返回所有key\"，返回{\"operation\":\"keys\",\"pattern\":\"*\"}\n" +
+            "示例16：用户问\"列出所有的key\"，返回{\"operation\":\"keys\",\"pattern\":\"*\"}\n" +
             "用户问题：%s";
     
     @Value("${llm.api-key}")
