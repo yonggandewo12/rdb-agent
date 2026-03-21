@@ -16,6 +16,13 @@ check_running() {
             return 0
         fi
     fi
+
+    MATCHING_PID=$(pgrep -f "${BASE_DIR}/lib/.*${APP_NAME}.*\.jar\|${BASE_DIR}/lib/\*\|${BASE_DIR}/config:${BASE_DIR}/lib" | head -1)
+    if [ -n "$MATCHING_PID" ]; then
+        PID="$MATCHING_PID"
+        return 0
+    fi
+
     return 1
 }
 
@@ -26,7 +33,9 @@ stop() {
         exit 0
     fi
 
-    PID=$(cat "$PID_FILE")
+    if [ -f "$PID_FILE" ] && ps -p "$(cat "$PID_FILE")" > /dev/null 2>&1; then
+        PID=$(cat "$PID_FILE")
+    fi
     echo "Stopping ${APP_NAME} (PID: ${PID})..."
 
     # Graceful stop

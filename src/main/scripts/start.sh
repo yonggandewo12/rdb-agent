@@ -5,6 +5,8 @@
 APP_NAME="rdb-agent"
 APP_VERSION="0.0.1-SNAPSHOT"
 APP_JAR="${APP_NAME}-${APP_VERSION}.jar"
+ARCHIVE_NAME="${APP_NAME}-${APP_VERSION}-distribution.tar.gz"
+UNPACKED_DIR_NAME="${APP_NAME}-${APP_VERSION}"
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -18,6 +20,26 @@ PID_FILE="${BASE_DIR}/.${APP_NAME}.pid"
 
 # Create logs directory if not exists
 mkdir -p "${LOGS_DIR}"
+
+cleanup_deploy_artifacts() {
+    PARENT_DIR="$(dirname "${BASE_DIR}")"
+    BASE_NAME="$(basename "${BASE_DIR}")"
+
+    if [ "${BASE_NAME}" != "${APP_NAME}" ]; then
+        return
+    fi
+
+    STALE_DIR="${PARENT_DIR}/${UNPACKED_DIR_NAME}"
+    STALE_ARCHIVE="${PARENT_DIR}/${ARCHIVE_NAME}"
+
+    if [ -d "${STALE_DIR}" ] && [ "${STALE_DIR}" != "${BASE_DIR}" ]; then
+        rm -rf "${STALE_DIR}"
+    fi
+
+    if [ -f "${STALE_ARCHIVE}" ]; then
+        rm -f "${STALE_ARCHIVE}"
+    fi
+}
 
 # Find the application jar
 if [ -f "${LIB_DIR}/${APP_JAR}" ]; then
@@ -41,6 +63,11 @@ if [ -f "${SCRIPT_DIR}/stop.sh" ]; then
     "${SCRIPT_DIR}/stop.sh" > /dev/null 2>&1
     sleep 2
 fi
+
+pkill -f "${BASE_DIR}/config:${BASE_DIR}/lib" > /dev/null 2>&1 || true
+sleep 2
+
+cleanup_deploy_artifacts
 
 # Check if already running
 check_running() {
