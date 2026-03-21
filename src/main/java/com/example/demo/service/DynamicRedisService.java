@@ -34,42 +34,58 @@ public class DynamicRedisService {
     }
 
     public String get(RedisDatasource datasource, String key) {
-        return getRedisTemplate(datasource).opsForValue().get(key);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateStringOperation(redisTemplate, key, null, "查询字符串值");
+        return redisTemplate.opsForValue().get(key);
     }
 
     public String get(String groupId, String key) {
-        return getRedisTemplate(groupId).opsForValue().get(key);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateStringOperation(redisTemplate, key, null, "查询字符串值");
+        return redisTemplate.opsForValue().get(key);
     }
 
     public void set(RedisDatasource datasource, String key, String value) {
-        getRedisTemplate(datasource).opsForValue().set(key, value);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateStringOperation(redisTemplate, key, value, "设置字符串值");
+        redisTemplate.opsForValue().set(key, value);
     }
 
     public void set(String groupId, String key, String value) {
-        getRedisTemplate(groupId).opsForValue().set(key, value);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateStringOperation(redisTemplate, key, value, "设置字符串值");
+        redisTemplate.opsForValue().set(key, value);
     }
 
     public void set(RedisDatasource datasource, String key, String value, long expireSeconds) {
-        getRedisTemplate(datasource).opsForValue().set(key, value, expireSeconds, TimeUnit.SECONDS);
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validateStringOperation(redisTemplate, key, value, "设置字符串值");
+        redisTemplate.opsForValue().set(key, value, expireSeconds, TimeUnit.SECONDS);
     }
 
     public void set(String groupId, String key, String value, long expireSeconds) {
-        getRedisTemplate(groupId).opsForValue().set(key, value, expireSeconds, TimeUnit.SECONDS);
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validateStringOperation(redisTemplate, key, value, "设置字符串值");
+        redisTemplate.opsForValue().set(key, value, expireSeconds, TimeUnit.SECONDS);
     }
 
     public Boolean delete(RedisDatasource datasource, String key) {
+        validateKey(key);
         return getRedisTemplate(datasource).delete(key);
     }
 
     public Boolean delete(String groupId, String key) {
+        validateKey(key);
         return getRedisTemplate(groupId).delete(key);
     }
 
     public Boolean exists(RedisDatasource datasource, String key) {
+        validateKey(key);
         return getRedisTemplate(datasource).hasKey(key);
     }
 
     public Boolean exists(String groupId, String key) {
+        validateKey(key);
         return getRedisTemplate(groupId).hasKey(key);
     }
 
@@ -232,10 +248,12 @@ public class DynamicRedisService {
     }
 
     public Long ttl(RedisDatasource datasource, String key) {
+        validateKey(key);
         return getRedisTemplate(datasource).getExpire(key, TimeUnit.SECONDS);
     }
 
     public Long ttl(String groupId, String key) {
+        validateKey(key);
         return getRedisTemplate(groupId).getExpire(key, TimeUnit.SECONDS);
     }
 
@@ -252,6 +270,17 @@ public class DynamicRedisService {
         validateKey(key);
         validateStringValues(values, "集合操作");
         validateDataType(redisTemplate, key, DataType.SET, operationName);
+    }
+
+    private void validateStringOperation(StringRedisTemplate redisTemplate, String key,
+                                         String value, String operationName) {
+        validateKey(key);
+        if (value != null && !StringUtils.hasText(value)) {
+            throw new IllegalArgumentException("字符串操作缺少有效值");
+        }
+        if (!"设置字符串值".equals(operationName)) {
+            validateDataType(redisTemplate, key, DataType.STRING, operationName);
+        }
     }
 
     private void validateListOperation(StringRedisTemplate redisTemplate, String key,
