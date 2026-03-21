@@ -15,14 +15,17 @@ import java.util.*;
 @Service
 public class FeishuReportService {
 
-    private static final String FEISHU_DOC_APPLINK = "https://applink.feishu.cn/client/docx/open?document_id=%s";
+    private static final String FEISHU_DOC_WEB_URL = "https://%s/docx/%s";
 
     @Value("${feishu.app-id}")
     private String appId;
     
     @Value("${feishu.app-secret}")
     private String appSecret;
-    
+
+    @Value("${feishu.doc-domain}")
+    private String docDomain;
+
     @Autowired
     private LlmService llmService;
     
@@ -238,9 +241,9 @@ public class FeishuReportService {
     }
     
     private String setDocPublicAccess(String token, String docId) throws Exception {
-        String url = String.format("https://open.feishu.cn/open-apis/drive/v1/permissions/%s/public?type=docx", docId);
+        String url = String.format("https://open.feishu.cn/open-apis/drive/v2/permissions/%s/public?type=docx", docId);
         
-        String json = "{\"external_access_entity\":\"open\",\"link_share_entity\":\"anyone_readable\"}";
+        String json = "{\"external_access_entity\":\"open\",\"link_share_entity\":\"anyone_readable\",\"security_entity\":\"anyone_can_view\"}";
         
         RequestBody body = RequestBody.create(json, JSON);
         Request request = new Request.Builder()
@@ -255,8 +258,17 @@ public class FeishuReportService {
             if (!response.isSuccessful()) {
                 throw new RuntimeException("设置文档权限失败: " + responseBody);
             }
-            return String.format(FEISHU_DOC_APPLINK, docId);
         }
+
+        return String.format(FEISHU_DOC_WEB_URL, normalizeDocDomain(), docId);
+    }
+
+    private String normalizeDocDomain() {
+        String normalized = docDomain == null ? "" : docDomain.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalStateException("缺少feishu.doc-domain配置");
+        }
+        return normalized.contains(".") ? normalized : normalized + ".feishu.cn";
     }
     
     private void sendGroupMessage(String token, String chatId, String docUrl, Map<String, Object> reportData,

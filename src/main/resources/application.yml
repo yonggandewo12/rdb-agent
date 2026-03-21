@@ -52,6 +52,7 @@ feishu:
   app-secret: test
   verification-token: test
   encrypt-key: test
+  doc-domain: lcnkm9rdfyd7.feishu.cn
 
 llm:
   api-key: your_llm_api_key
