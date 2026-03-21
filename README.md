@@ -105,6 +105,7 @@ flowchart LR
 - Hash: `hget` `hgetall` `hset` `hdelete`
 - List: `lrange` `lpush` `rpush` `llen`
 - Set: `smembers` `sadd` `srem`
+- Key query: `keys`
 
 说明：
 - List 写入时统一使用 `values` 数组格式
@@ -112,6 +113,7 @@ flowchart LR
 - Redis 操作执行结果会再格式化成自然语言回复
 - 当目标 key 已存在且类型不匹配时，系统会返回明确错误，例如 `key test 当前类型为 string，不能执行添加集合元素`
 - 当前动态 Redis 路径已对 `string`、`hash`、`list`、`set` 四类操作增加前置校验，避免直接暴露 Redis `WRONGTYPE` 原始异常
+- `keys` 当前直接使用 Redis `KEYS` 模式查询，适合中小规模实例，不建议在超大生产实例上无约束执行 `keys("*")`
 
 对应代码：
 - `src/main/java/com/example/demo/service/impl/LlmServiceImpl.java`
