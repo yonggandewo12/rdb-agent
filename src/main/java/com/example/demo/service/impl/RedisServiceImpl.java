@@ -179,7 +179,15 @@ public class RedisServiceImpl implements RedisService {
         }
         return redisTemplate.opsForSet().members(key);
     }
-    
+
+    @Override
+    public Set<String> keys(String pattern) {
+        if (!StringUtils.hasText(pattern)) {
+            throw new IllegalArgumentException("Redis pattern cannot be empty");
+        }
+        return redisTemplate.keys(pattern);
+    }
+
     @Override
     public Long sadd(String key, String... values) {
         if (!StringUtils.hasText(key) || values == null || values.length == 0) {

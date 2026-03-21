@@ -161,7 +161,12 @@ public class CommonConstant {
          * Redis操作指令-集合成员查询
          */
         public static final String OP_SMEMBERS = "smembers";
-        
+
+        /**
+         * Redis操作指令-键查询
+         */
+        public static final String OP_KEYS = "keys";
+
         /**
          * Redis操作指令-列表长度查询
          */

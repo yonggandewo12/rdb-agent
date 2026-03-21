@@ -48,7 +48,7 @@ public class LlmServiceImpl implements LlmService {
     private static final String PROMPT_TEMPLATE = "你是一个智能助手，主要负责帮助用户操作Redis。请按以下规则处理：\n" +
             "1. 如果问题与Redis完全无关，请直接回答用户的问题，不要输出JSON格式，直接返回自然语言回答。\n" +
             "2. 如果问题与Redis相关，请输出要执行的Redis操作，格式为JSON，只返回JSON不要其他内容。\n" +
-            "支持的操作：get, set, delete, exists, hget, hgetall, hset, hmset, hdelete, lrange, lpush, rpush, llen, smembers, sadd, srem, ttl等。\n" +
+            "支持的操作：get, set, delete, exists, hget, hgetall, hset, hmset, hdelete, lrange, lpush, rpush, llen, smembers, sadd, srem, ttl, keys等。\n" +
             "示例1：用户问\"查询key为user:1的value\"，返回{\"operation\":\"get\",\"key\":\"user:1\"}\n" +
             "示例2：用户问\"查询哈希key为user:info的name字段\"，返回{\"operation\":\"hget\",\"key\":\"user:info\",\"field\":\"name\"}\n" +
             "示例3：用户问\"设置key为name的值为张三，过期时间60秒\"，返回{\"operation\":\"set\",\"key\":\"name\",\"value\":\"张三\",\"expire\":60}\n" +
@@ -60,6 +60,9 @@ public class LlmServiceImpl implements LlmService {
             "示例8：用户问\"向集合tags添加元素java、redis\"，返回{\"operation\":\"sadd\",\"key\":\"tags\",\"values\":[\"java\",\"redis\"]}\n" +
             "示例9：用户问\"从集合tags移除元素redis\"，返回{\"operation\":\"srem\",\"key\":\"tags\",\"values\":[\"redis\"]}\n" +
             "示例10：用户问\"删除哈希user:info的name字段\"，返回{\"operation\":\"hdelete\",\"key\":\"user:info\",\"fields\":[\"name\"]}\n" +
+            "示例11：用户问\"返回所有的keys\"，返回{\"operation\":\"keys\",\"pattern\":\"*\"}\n" +
+            "示例12：用户问\"查看所有key\"，返回{\"operation\":\"keys\",\"pattern\":\"*\"}\n" +
+            "示例13：用户问\"查看以user:开头的所有key\"，返回{\"operation\":\"keys\",\"pattern\":\"user:*\"}\n" +
             "用户问题：%s";
     
     @Value("${llm.api-key}")
@@ -94,7 +97,7 @@ public class LlmServiceImpl implements LlmService {
         try {
             JsonNode opNode = OBJECT_MAPPER.readTree(operationJson);
             String operation = opNode.get("operation").asText();
-            String key = opNode.get("key").asText();
+            String key = opNode.has("key") ? opNode.get("key").asText() : null;
             
             switch (operation.toLowerCase()) {
                 case CommonConstant.Llm.OP_GET:
@@ -114,6 +117,9 @@ public class LlmServiceImpl implements LlmService {
                     return dynamicRedisService.lrange(datasource, key, start, end);
                 case CommonConstant.Llm.OP_SMEMBERS:
                     return dynamicRedisService.smembers(datasource, key);
+                case CommonConstant.Llm.OP_KEYS:
+                    String keysPattern = opNode.has("pattern") ? opNode.get("pattern").asText() : "*";
+                    return dynamicRedisService.keys(datasource, keysPattern);
                 case CommonConstant.Llm.OP_LLEN:
                     return dynamicRedisService.llen(datasource, key);
                 case CommonConstant.Llm.OP_SET:
@@ -327,7 +333,7 @@ public class LlmServiceImpl implements LlmService {
         try {
             JsonNode opNode = OBJECT_MAPPER.readTree(operationJson);
             String operation = opNode.get("operation").asText();
-            String key = opNode.get("key").asText();
+            String key = opNode.has("key") ? opNode.get("key").asText() : null;
             
             switch (operation.toLowerCase()) {
                 case CommonConstant.Llm.OP_GET:
@@ -347,6 +353,9 @@ public class LlmServiceImpl implements LlmService {
                     return redisService.lrange(key, start, end);
                 case CommonConstant.Llm.OP_SMEMBERS:
                     return redisService.smembers(key);
+                case CommonConstant.Llm.OP_KEYS:
+                    String keysPattern = opNode.has("pattern") ? opNode.get("pattern").asText() : "*";
+                    return redisService.keys(keysPattern);
                 case CommonConstant.Llm.OP_LLEN:
                     return redisService.llen(key);
                 case CommonConstant.Llm.OP_SET:

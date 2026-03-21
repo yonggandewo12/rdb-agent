@@ -173,7 +173,15 @@ public interface RedisService {
      * @return 成员集合
      */
     Set<String> smembers(String key);
-    
+
+    /**
+     * 按模式查询匹配的键
+     *
+     * @param pattern 键模式
+     * @return 键集合
+     */
+    Set<String> keys(String pattern);
+
     /**
      * 向集合添加元素
      *

@@ -217,6 +217,18 @@ public class DynamicRedisService {
         return redisTemplate.opsForSet().members(key);
     }
 
+    public Set<String> keys(RedisDatasource datasource, String pattern) {
+        StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
+        validatePattern(pattern);
+        return redisTemplate.keys(pattern);
+    }
+
+    public Set<String> keys(String groupId, String pattern) {
+        StringRedisTemplate redisTemplate = getRedisTemplate(groupId);
+        validatePattern(pattern);
+        return redisTemplate.keys(pattern);
+    }
+
     public Long sadd(RedisDatasource datasource, String key, String... values) {
         StringRedisTemplate redisTemplate = getRedisTemplate(datasource);
         validateSetOperation(redisTemplate, key, values, "添加集合元素");
@@ -331,6 +343,12 @@ public class DynamicRedisService {
         if (dataType != null && dataType != DataType.NONE && dataType != expectedType) {
             throw new IllegalArgumentException(String.format("key %s 当前类型为 %s，不能执行%s", key,
                     dataType.code(), operationName));
+        }
+    }
+
+    private void validatePattern(String pattern) {
+        if (!StringUtils.hasText(pattern)) {
+            throw new IllegalArgumentException("Redis pattern不能为空");
         }
     }
 }
