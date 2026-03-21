@@ -450,6 +450,8 @@ rdb-agent-0.0.1-SNAPSHOT/
 
 特点：
 - `start.sh` 启动前会自动执行 `stop.sh`
+- `start.sh` 会自动清理同级目录下的临时解压目录 `rdb-agent-0.0.1-SNAPSHOT` 和上传包 `rdb-agent-0.0.1-SNAPSHOT-distribution.tar.gz`
+- `/root` 下只允许保留一个有效运行目录 `rdb-agent`，备份目录可单独保留
 - 默认 JVM 参数为 `-Xms256m -Xmx512m -XX:+UseG1GC`
 - 进程 PID 会写入隐藏文件，便于停服和重启
 - 日志输出到 `logs/rdb-agent.out`
