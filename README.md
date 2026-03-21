@@ -360,12 +360,34 @@ feishu:
   app-secret: your_app_secret
   verification-token: your_verification_token
   encrypt-key: your_encrypt_key
+  doc-domain: your_tenant.feishu.cn
 ```
 
 说明：
 - `verification-token` 用于校验飞书请求合法性
 - `encrypt-key` 用于解密飞书 `encrypt` 模式事件
 - 未配置 `encrypt-key` 时，无法处理加密事件
+- `doc-domain` 用于拼接飞书云文档最终访问地址，格式应为实际租户域名，如 `lcnkm9rdfyd7.feishu.cn`
+- Redis 巡检报告推送中的文档链接会使用 `https://{doc-domain}/docx/{document_id}` 生成
+
+部署说明：
+- 服务器环境中的 `feishu.doc-domain` 必须与飞书浏览器文档真实域名保持一致
+- 如果配置错误，报告任务虽然能创建文档，但群里收到的链接会跳到无效页面或错误租户
+
+配置示例：
+
+```yaml
+feishu:
+  app-id: cli_xxx
+  app-secret: xxx
+  verification-token: xxx
+  encrypt-key: xxx
+  doc-domain: lcnkm9rdfyd7.feishu.cn
+```
+
+验证方式：
+- 手动触发一次巡检任务后，群消息中的文档链接应类似 `https://lcnkm9rdfyd7.feishu.cn/docx/xxxxxxxx`
+- 如果链接打开后跳到了别的租户、无效页或错误登录页，优先检查 `feishu.doc-domain` 是否填写为实际浏览器文档域名
 
 ### LLM 配置
 
