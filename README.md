@@ -115,6 +115,19 @@ flowchart LR
 - 当前动态 Redis 路径已对 `string`、`hash`、`list`、`set` 四类操作增加前置校验，避免直接暴露 Redis `WRONGTYPE` 原始异常
 - `keys` 当前直接使用 Redis `KEYS` 模式查询，适合中小规模实例，不建议在超大生产实例上无约束执行 `keys("*")`
 
+推荐问法：
+- 查看所有 key：`查看所有key`、`返回所有的keys`
+- 按前缀查询 key：`查看以user:开头的所有key`
+- 查询字符串：`查询key为demo:string的value`
+- 查询哈希字段：`查询哈希key为user:info的name字段`
+- 查询列表：`查询列表order:list的所有元素`
+- 查询集合：`查看集合tags的所有成员`
+
+错误提示说明：
+- 如果 key 类型不匹配，系统会直接返回业务化错误，而不是底层 Redis 异常
+- 例如当 `demo:list` 实际是 `string` 时，查询列表会返回：`key demo:list 当前类型为 string，不能执行查询列表元素`
+- 如果确实需要复用同名 key，请先删除旧 key，或改用新的 key 命名
+
 对应代码：
 - `src/main/java/com/example/demo/service/impl/LlmServiceImpl.java`
 - `src/main/java/com/example/demo/service/RedisService.java`
@@ -456,6 +469,7 @@ rdb-agent-0.0.1-SNAPSHOT/
 - `start.sh` 启动前会自动执行 `stop.sh`
 - `start.sh` 会自动清理同级目录下的临时解压目录 `rdb-agent-0.0.1-SNAPSHOT` 和上传包 `rdb-agent-0.0.1-SNAPSHOT-distribution.tar.gz`
 - `/root` 下只允许保留一个有效运行目录 `rdb-agent`，备份目录可单独保留
+- 如果旧进程因为 PID 文件丢失未被正常停止，脚本还会基于命令行特征兜底清理残留 Java 进程
 - 默认 JVM 参数为 `-Xms256m -Xmx512m -XX:+UseG1GC`
 - 进程 PID 会写入隐藏文件，便于停服和重启
 - 日志输出到 `logs/rdb-agent.out`
@@ -550,6 +564,14 @@ rdb-agent-0.0.1-SNAPSHOT/
 - LLM Redis 指令集覆盖常用操作，但不是完整 Redis 命令全集
 - 管理后台当前是原生静态页面，不是完整前后端分离 SPA
 - 巡检中大 Key 检测当前使用 `keys("*")` 遍历全量 key，适合中小规模实例，不适合超大生产实例直接无约束使用
+
+## 常见故障排查
+
+- `返回所有的keys` 没有返回预期结果：优先改用更明确的问法，如 `查看所有key` 或 `查看以user:开头的所有key`
+- 提示 `key xxx 当前类型为 string/hash/list/set ...`：说明同名 key 已被其他数据结构占用，需要先删除旧 key 或更换 key 名称
+- 飞书报告中的文档链接打不开：先检查 `feishu.doc-domain` 是否与实际浏览器域名一致
+- 报告链接可以打开但要求登录：说明文档链接格式通常已正确，需要继续检查飞书侧登录态或外部访问策略
+- 部署后 `/root` 下出现多个 `rdb-agent` 目录：应优先检查是否绕过了 `start.sh`，因为脚本已内置清理逻辑
 
 ## 关键文件索引
 
